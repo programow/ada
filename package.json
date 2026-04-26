@@ -27,7 +27,9 @@
       "preload.js",
       "renderer.js",
       "index.html",
-      "config.json"
+      "config.json",
+      "trayIconTemplate.png",
+      "trayIconTemplate@2x.png"
     ]
   },
   "devDependencies": {

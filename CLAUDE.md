@@ -30,3 +30,28 @@ macOS-only. Uses native APIs: `pbcopy`, `osascript`, CGEvent keystroke simulatio
 ## Configuration
 
 `config.json` holds the OpenAI API key and model (`whisper-1`). This file contains secrets — never commit it.
+
+## Clean Build & Install Ritual
+
+Every time we need to test a packaged build, run these steps in order:
+
+```bash
+# 1. Reset macOS permissions
+tccutil reset Microphone com.programow.ada
+tccutil reset Accessibility com.programow.ada
+
+# 2. Remove existing app and build artifacts
+rm -rf /Applications/Ada.app
+rm -rf dist/
+
+# 3. Build
+npm run build
+
+# 4. Install and re-sign with entitlements
+cp -R dist/mac-arm64/Ada.app /Applications/Ada.app
+codesign --force --deep --sign - --entitlements entitlements.plist /Applications/Ada.app
+```
+
+The re-signing step is required because electron-builder's ad-hoc signing doesn't properly apply entitlements to nested binaries. The `--deep` flag ensures all frameworks/helpers inside the bundle get signed with the microphone entitlement.
+
+After launching, macOS will prompt for both **Microphone** and **Accessibility** permissions.

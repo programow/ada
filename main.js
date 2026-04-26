@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, Tray, nativeImage, systemPreferences, session } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, Tray, Menu, nativeImage, systemPreferences, session } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
@@ -6,6 +6,7 @@ const fs = require('fs');
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf-8'));
 
 let win;
+let dashboardWin;
 let tray;
 let isRecording = false;
 let isQuitting = false;
@@ -34,21 +35,59 @@ function createWindow() {
   });
 }
 
+function openDashboard() {
+  if (dashboardWin) {
+    dashboardWin.show();
+    dashboardWin.focus();
+    app.dock.show();
+    return;
+  }
+
+  app.dock.show();
+
+  dashboardWin = new BrowserWindow({
+    width: 800,
+    height: 600,
+    title: 'Ada',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  dashboardWin.loadFile('dashboard.html');
+
+  dashboardWin.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      dashboardWin.hide();
+      app.dock.hide();
+    }
+  });
+}
+
 function createTray() {
-  // Simple 16x16 tray icon
-  const icon = nativeImage.createFromDataURL(
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAaklEQVQ4T2NkoBAwUqifYdAb8P+/wH8GBgZGkCuIcQVMDcgQmAEgNciGEDQApAbZEJAahgULGP4zMDAyEuMKmBqQIXADiHUFuhqQK2AGMNLNBTA1MENgBpDiCnQ1IEOoZgDVvIFiAwDErgAArzJTEU0QKBIAAAAASUVORK5CYII='
-  );
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'trayIconTemplate.png'));
+  icon.setTemplateImage(true);
   tray = new Tray(icon);
   tray.setToolTip('Ada - Speech to Text');
+
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Ada - Speech to Text', enabled: false },
+    { type: 'separator' },
+    { label: 'Dashboard', click: () => openDashboard() },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
+  ]);
+  tray.setContextMenu(contextMenu);
 }
 
 function pasteText(text) {
   return new Promise((resolve) => {
     // Write to system clipboard via pbcopy
     const { spawn } = require('child_process');
-    const pbcopy = spawn('pbcopy');
-    pbcopy.stdin.write(text);
+    const pbcopy = spawn('pbcopy', [], { env: { ...process.env, LANG: 'en_US.UTF-8' } });
+    pbcopy.stdin.write(text, 'utf-8');
     pbcopy.stdin.end();
 
     pbcopy.on('close', () => {
@@ -77,10 +116,19 @@ function pasteText(text) {
 }
 
 app.whenReady().then(async () => {
-  // Request microphone permission from macOS (triggers the system prompt)
   if (process.platform === 'darwin') {
-    await systemPreferences.askForMediaAccess('microphone');
+    app.dock.hide();
   }
+
+  if (process.platform === 'darwin') {
+    // Request microphone permission (triggers system prompt)
+    await systemPreferences.askForMediaAccess('microphone');
+    // Request accessibility/input monitoring (triggers system prompt)
+    systemPreferences.isTrustedAccessibilityClient(true);
+  }
+
+  // Launch on startup
+  app.setLoginItemSettings({ openAtLogin: true });
 
   // Allow the renderer to use microphone via getUserMedia
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
