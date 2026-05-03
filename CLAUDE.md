@@ -33,25 +33,14 @@ macOS-only. Uses native APIs: `pbcopy`, `osascript`, CGEvent keystroke simulatio
 
 ## Clean Build & Install Ritual
 
-Every time we need to test a packaged build, run these steps in order:
+Use `/build-clean` (defined in `.claude/commands/build-clean.md`). It
+automates the full ritual: TCC reset, remove the installed app and
+`dist/`, build, copy, and re-sign with entitlements.
 
-```bash
-# 1. Reset macOS permissions
-tccutil reset Microphone com.programow.ada
-tccutil reset Accessibility com.programow.ada
+The ritual is documented in detail — with the rationale for each step
+— in [`docs/build-and-release.md`](docs/build-and-release.md). Don't
+skip the re-sign step: electron-builder's ad-hoc signing doesn't
+propagate the microphone entitlement to nested binaries on its own.
 
-# 2. Remove existing app and build artifacts
-rm -rf /Applications/Ada.app
-rm -rf dist/
-
-# 3. Build
-npm run build
-
-# 4. Install and re-sign with entitlements
-cp -R dist/mac-arm64/Ada.app /Applications/Ada.app
-codesign --force --deep --sign - --entitlements entitlements.plist /Applications/Ada.app
-```
-
-The re-signing step is required because electron-builder's ad-hoc signing doesn't properly apply entitlements to nested binaries. The `--deep` flag ensures all frameworks/helpers inside the bundle get signed with the microphone entitlement.
-
-After launching, macOS will prompt for both **Microphone** and **Accessibility** permissions.
+After launching the new build, macOS will prompt for **Microphone**
+and **Accessibility** permissions.
