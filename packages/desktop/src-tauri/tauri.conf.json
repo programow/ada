@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vox Era",
+  "version": "0.0.0",
+  "identifier": "com.programow.voxera",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Vox Era",
+        "width": 900,
+        "height": 680,
+        "minWidth": 720,
+        "minHeight": 480,
+        "resizable": true,
+        "visible": false,
+        "center": true
+      },
+      {
+        "label": "overlay",
+        "title": "Vox Era Overlay",
+        "width": 280,
+        "height": 64,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "url": "index.html?window=overlay"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.openai.com https://api.groq.com https://api.deepgram.com https://api.assemblyai.com https://api.elevenlabs.io https://fal.run https://api.gladia.io https://*.openai.azure.com https://api.rev.ai"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "category": "Productivity",
+    "shortDescription": "Cross-platform speech-to-text",
+    "longDescription": "Vox Era — multi-provider speech-to-text desktop app with BYOK and OS-keychain-stored credentials.",
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.plist"
+    },
+    "linux": {
+      "deb": { "depends": ["libwebkit2gtk-4.1-0", "libayatana-appindicator3-1"] },
+      "rpm": {}
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://vox-era.com/updates/latest.json"],
+      "pubkey": "REPLACE_WITH_MINISIGN_PUBKEY_FROM_PLAN_D"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+[package]
+name = "voxera"
+version = "0.0.0"
+description = "Vox Era desktop"
+authors = ["Programow"]
+edition = "2021"
+
+[lib]
+name = "voxera_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-store = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+cpal = "0.15"
+hound = "3.5"
+keyring = { version = "3", default-features = false, features = ["sync-secret-service", "apple-native", "windows-native"] }
+zeroize = { version = "1", features = ["derive"] }
+enigo = "0.2"
+log = "0.4"
+env_logger = "0.11"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.24"
+core-foundation = "0.10"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-av-foundation = "0.3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = ["Win32_System_Registry"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+tempfile = "3.10"
+tokio-test = "0.4"
