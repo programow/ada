@@ -1,4 +1,7 @@
 node_modules/
 config.json
 dist/
-docs/superpowers/
+# docs/superpowers/
+docs/sessions/
+
+.DS_Store
