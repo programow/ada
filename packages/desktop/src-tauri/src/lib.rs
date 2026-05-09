@@ -5,6 +5,7 @@ pub mod paste;
 pub mod secrets;
 pub mod settings;
 pub mod shortcut;
+pub mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
