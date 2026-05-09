@@ -1,7 +1,47 @@
+# Dependencies
 node_modules/
-config.json
-dist/
-# docs/superpowers/
-docs/sessions/
 
+# Build outputs
+packages/*/dist/
+packages/*/out/
+packages/*/build/
+packages/*/.next/
+packages/desktop/src-tauri/target/
+dist/
+
+# Test artifacts
+coverage/
+.nyc_output/
+playwright-report/
+blob-report/
+playwright/.cache/
+*.lcov
+
+# Editor + OS
 .DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+bun-debug.log*
+logs/
+*.log
+
+# Local config & secrets
+config.json
+.env
+.env.local
+.env.*.local
+*.p8
+*.p12
+*.cer
+
+# Local-only AI workflow artifacts (specs/plans gitignored per project policy)
+docs/superpowers/
+
+# Legacy Electron app artifacts
+legacy/electron/node_modules/
+legacy/electron/dist/
