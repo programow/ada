@@ -1,5 +1,18 @@
 import { createAssemblyAI } from '@ai-sdk/assemblyai';
-import type { ProviderConfig } from './types';
+import type { Model, ProviderConfig } from './types';
+
+const DEFAULT_MODELS: Model[] = [
+    {
+        id: 'best',
+        displayName: 'Best',
+        description: 'Highest accuracy AssemblyAI model tier',
+    },
+    {
+        id: 'nano',
+        displayName: 'Nano',
+        description: 'Lower-cost AssemblyAI model tier',
+    },
+];
 
 export const assemblyaiConfig: ProviderConfig = {
     id: 'assemblyai',
@@ -11,8 +24,9 @@ export const assemblyaiConfig: ProviderConfig = {
     makeModel: (modelId, apiKey) =>
         createAssemblyAI({ apiKey }).transcription(modelId as 'best' | 'nano'),
     listModels: null,
-    defaultModels: [{ id: 'best', displayName: 'Best' }],
+    defaultModels: DEFAULT_MODELS,
     pricing: {
         best: { perMinuteUSD: 0.00617, lastUpdated: '2026-05-03' },
+        nano: { perMinuteUSD: 0.00204, lastUpdated: '2026-05-03' },
     },
 };
