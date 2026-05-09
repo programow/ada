@@ -1,5 +1,23 @@
 import { createRevai } from '@ai-sdk/revai';
-import type { ProviderConfig } from './types';
+import type { Model, ProviderConfig } from './types';
+
+const DEFAULT_MODELS: Model[] = [
+    {
+        id: 'machine',
+        displayName: 'Machine',
+        description: 'Asynchronous machine transcription tier',
+    },
+    {
+        id: 'low_cost',
+        displayName: 'Low Cost',
+        description: 'Discounted asynchronous transcription tier',
+    },
+    {
+        id: 'fusion',
+        displayName: 'Fusion',
+        description: 'Higher-accuracy fusion transcription tier',
+    },
+];
 
 export const revaiConfig: ProviderConfig = {
     id: 'revai',
@@ -11,8 +29,10 @@ export const revaiConfig: ProviderConfig = {
     makeModel: (modelId, apiKey) =>
         createRevai({ apiKey }).transcription(modelId as 'machine' | 'low_cost' | 'fusion'),
     listModels: null,
-    defaultModels: [{ id: 'machine', displayName: 'Machine' }],
+    defaultModels: DEFAULT_MODELS,
     pricing: {
         machine: { perMinuteUSD: 0.025, lastUpdated: '2026-05-03' },
+        low_cost: { perMinuteUSD: 0.0167, lastUpdated: '2026-05-03' },
+        fusion: { perMinuteUSD: 0.04, lastUpdated: '2026-05-03' },
     },
 };
