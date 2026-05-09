@@ -1,4 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dashboard } from './Dashboard';
 
 export function MainWindow() {
     return (
@@ -15,7 +16,7 @@ export function MainWindow() {
                     <TabsTrigger value="about">About</TabsTrigger>
                 </TabsList>
                 <TabsContent value="dashboard" data-testid="panel-dashboard">
-                    <p className="text-sm">Dashboard placeholder.</p>
+                    <Dashboard stats={null} />
                 </TabsContent>
                 <TabsContent value="history" data-testid="panel-history">
                     <p className="text-sm">History placeholder.</p>
