@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dashboard } from './Dashboard';
 import { History } from './History';
+import { SettingsProviders } from './SettingsProviders';
 
 export function MainWindow() {
     return (
@@ -23,7 +24,7 @@ export function MainWindow() {
                     <History entries={[]} />
                 </TabsContent>
                 <TabsContent value="settings" data-testid="panel-settings">
-                    <p className="text-sm">Settings placeholder.</p>
+                    <SettingsProviders />
                 </TabsContent>
                 <TabsContent value="about" data-testid="panel-about">
                     <p className="text-sm">About placeholder.</p>
