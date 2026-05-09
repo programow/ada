@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 pub mod mock;
 pub mod standard;
 
+#[cfg(target_os = "macos")]
+pub mod macos_fn;
+
 /// Hotkey combination supported by the [`ShortcutManager`] surface.
 ///
 /// `Fn` is macOS-only and routed to a `CGEventTap`-based backend
