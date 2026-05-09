@@ -1,0 +1,25 @@
+# Vox Era hook orchestration. Three gates per spec §10.2.
+# - pre-commit: cosmetic, fast, staged-files only
+# - commit-msg: conventional commits enforcement
+# - pre-push: correctness checks (typecheck + lint at root; test runs once packages exist)
+
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,jsx,json,jsonc}"
+      run: bunx biome check --write {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}
+
+pre-push:
+  parallel: false
+  commands:
+    lint:
+      run: bun run lint
+    typecheck:
+      run: bun run typecheck
