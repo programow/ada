@@ -1,0 +1,42 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
+import { MainWindow } from './MainWindow';
+
+describe('<MainWindow />', () => {
+    it('renders four tab triggers: Dashboard, History, Settings, About', () => {
+        render(<MainWindow />);
+        expect(screen.getByRole('tab', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /history/i })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /about/i })).toBeInTheDocument();
+    });
+
+    it('shows the Dashboard panel by default', () => {
+        render(<MainWindow />);
+        const dashboardTab = screen.getByRole('tab', { name: /dashboard/i });
+        expect(dashboardTab).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByTestId('panel-dashboard')).toBeInTheDocument();
+    });
+
+    it('switches to the History panel when its tab is clicked', async () => {
+        const user = userEvent.setup();
+        render(<MainWindow />);
+        await user.click(screen.getByRole('tab', { name: /history/i }));
+        expect(screen.getByTestId('panel-history')).toBeInTheDocument();
+    });
+
+    it('switches to the Settings panel when its tab is clicked', async () => {
+        const user = userEvent.setup();
+        render(<MainWindow />);
+        await user.click(screen.getByRole('tab', { name: /settings/i }));
+        expect(screen.getByTestId('panel-settings')).toBeInTheDocument();
+    });
+
+    it('switches to the About panel when its tab is clicked', async () => {
+        const user = userEvent.setup();
+        render(<MainWindow />);
+        await user.click(screen.getByRole('tab', { name: /about/i }));
+        expect(screen.getByTestId('panel-about')).toBeInTheDocument();
+    });
+});
