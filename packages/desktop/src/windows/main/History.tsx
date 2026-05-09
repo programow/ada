@@ -1,0 +1,132 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useId, useMemo, useState } from 'react';
+
+export interface HistoryEntry {
+    id: string;
+    text: string;
+    provider: string;
+    model: string;
+    createdAt: string;
+}
+
+export interface HistoryProps {
+    entries: readonly HistoryEntry[];
+    pageSize?: number;
+}
+
+export function History({ entries, pageSize = 25 }: HistoryProps) {
+    const [search, setSearch] = useState('');
+    const [providerFilter, setProviderFilter] = useState('all');
+    const [page, setPage] = useState(0);
+    const searchId = useId();
+    const providerSelectId = useId();
+
+    const providers = useMemo(() => {
+        const set = new Set(entries.map((e) => e.provider));
+        return Array.from(set).sort();
+    }, [entries]);
+
+    const filtered = useMemo(() => {
+        const lower = search.trim().toLowerCase();
+        return entries.filter((e) => {
+            if (providerFilter !== 'all' && e.provider !== providerFilter) return false;
+            if (lower && !e.text.toLowerCase().includes(lower)) return false;
+            return true;
+        });
+    }, [entries, search, providerFilter]);
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const safePage = Math.min(page, pageCount - 1);
+    const start = safePage * pageSize;
+    const visible = filtered.slice(start, start + pageSize);
+
+    return (
+        <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="flex flex-1 flex-col gap-1">
+                    <Label htmlFor={searchId}>Search</Label>
+                    <Input
+                        id={searchId}
+                        placeholder="Search transcripts"
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(0);
+                        }}
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <Label htmlFor={providerSelectId}>Provider</Label>
+                    <select
+                        id={providerSelectId}
+                        className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                        value={providerFilter}
+                        onChange={(e) => {
+                            setProviderFilter(e.target.value);
+                            setPage(0);
+                        }}
+                    >
+                        <option value="all">All</option>
+                        {providers.map((p) => (
+                            <option key={p} value={p}>
+                                {p}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {filtered.length === 0 ? (
+                <Card>
+                    <CardContent className="text-base font-medium">
+                        No transcriptions yet.
+                    </CardContent>
+                </Card>
+            ) : (
+                <ul className="flex flex-col gap-2">
+                    {visible.map((entry) => (
+                        <li key={entry.id} data-testid="history-row">
+                            <Card>
+                                <CardContent className="flex flex-col gap-1 text-sm font-medium normal-case">
+                                    <p className="text-base">{entry.text}</p>
+                                    <p className="text-xs uppercase tracking-wider opacity-70">
+                                        {entry.provider} · {entry.model} · {entry.createdAt}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {filtered.length > pageSize && (
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                        Page {safePage + 1} / {pageCount}
+                    </span>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage((p) => Math.max(0, p - 1))}
+                            disabled={safePage === 0}
+                        >
+                            Prev
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                            disabled={safePage === pageCount - 1}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+}
