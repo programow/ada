@@ -83,6 +83,42 @@ jobs:
         working-directory: packages/desktop/src-tauri
         run: cargo test --lib
 
+  test-landing:
+    name: Test landing
+    needs: [lint-typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Vitest (unit)
+        run: bun --cwd packages/landing run test:unit
+
+      - name: Build static export
+        run: bun --cwd packages/landing run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('packages/landing/package.json', 'bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright (chromium)
+        run: bunx playwright install chromium --with-deps
+        working-directory: packages/landing
+
+      - name: Playwright E2E
+        run: bun --cwd packages/landing run test:e2e
+
   build-desktop:
     name: Build desktop / ${{ matrix.os }}
     needs: [test-desktop]
