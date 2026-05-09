@@ -4,7 +4,7 @@ description: Full clean build & install ritual for Vox Era (Tauri). Resets TCC o
 
 Run the cross-platform clean-build ritual for Vox Era. The full rationale lives in `docs/build-and-release.md` (written in Plan D); this command is the operational entry point.
 
-Vox Era uses Tauri 2 (not Electron). The bundle identifier is `com.programow.voxera`. The packaged app name is `Vox Era`.
+Vox Era uses Tauri 2 (not Electron). The bundle identifier is `com.vhtechnology.voxera`. The packaged app name is `Vox Era`.
 
 ## Preflight
 
@@ -25,8 +25,8 @@ Detect the host OS via `uname -s` and dispatch.
 
 Print the steps that are about to run and ask for confirmation before any destructive op:
 
-1. `tccutil reset Microphone com.programow.voxera`
-2. `tccutil reset Accessibility com.programow.voxera`
+1. `tccutil reset Microphone com.vhtechnology.voxera`
+2. `tccutil reset Accessibility com.vhtechnology.voxera`
 3. `rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/`
 4. `cd packages/desktop && bun run tauri:build`
 5. `cp -R "packages/desktop/src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"`
@@ -39,8 +39,8 @@ Halt on the first non-zero exit and report which step failed.
 
 ```bash
 # 1-2: Reset TCC. tccutil exits non-zero when no entry exists; treat that as success.
-tccutil reset Microphone com.programow.voxera || true
-tccutil reset Accessibility com.programow.voxera || true
+tccutil reset Microphone com.vhtechnology.voxera || true
+tccutil reset Accessibility com.vhtechnology.voxera || true
 
 # 3: Remove the previous install + bundle output.
 rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/

@@ -1,5 +1,5 @@
 ---
-description: Reset macOS Microphone and Accessibility permissions for Vox Era (com.programow.voxera). Use when permission prompts no longer appear or to retest the grant flow.
+description: Reset macOS Microphone and Accessibility permissions for Vox Era (com.vhtechnology.voxera). Use when permission prompts no longer appear or to retest the grant flow.
 ---
 
 Reset the macOS TCC entries for Vox Era so that Microphone and Accessibility prompts fire again on next launch.
@@ -9,8 +9,8 @@ No-op on Linux and Windows: those platforms either don't gate microphone access 
 On macOS, run these two commands sequentially:
 
 ```bash
-tccutil reset Microphone com.programow.voxera
-tccutil reset Accessibility com.programow.voxera
+tccutil reset Microphone com.vhtechnology.voxera
+tccutil reset Accessibility com.vhtechnology.voxera
 ```
 
 `tccutil` occasionally exits non-zero when the system has never seen a TCC entry for the bundle id — that is harmless; mention it if you see it but do not abort.

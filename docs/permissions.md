@@ -32,7 +32,7 @@ The per-platform implementations live under `packages/desktop/src-tauri/src/audi
 **Required pieces:**
 
 1. **Runtime trigger** — `audio::permissions::macos::request_accessibility_permission` calls `AXIsProcessTrustedWithOptions` with the `kAXTrustedCheckOptionPrompt` option set. macOS opens System Settings → Privacy & Security → Accessibility; the user must flip the toggle.
-2. **Approval scope** — the toggle is per-bundle-id. The bundle id is `com.programow.voxera` (set in `tauri.conf.json` `identifier`).
+2. **Approval scope** — the toggle is per-bundle-id. The bundle id is `com.vhtechnology.voxera` (set in `tauri.conf.json` `identifier`).
 
 **Why this is needed:**
 
@@ -71,7 +71,7 @@ Not gated. Synthetic keystrokes via `enigo` (XTest under X11, libei or virtual-i
 
 `bun run tauri:dev` runs the Tauri app from your terminal in debug mode. On macOS, both Microphone and Accessibility permissions are inherited from the parent process — specifically, from your terminal application (Terminal.app, iTerm, Ghostty, etc.). If the terminal already has those grants, dev-mode Vox Era just works without prompting. **This means a dev build is not a fair test of the packaged permission flow.**
 
-A packaged build (built with `tauri build` and installed to `/Applications/Vox Era.app`) has its own bundle id (`com.programow.voxera`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
+A packaged build (built with `tauri build` and installed to `/Applications/Vox Era.app`) has its own bundle id (`com.vhtechnology.voxera`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
 
 Windows and Linux do not have this dev-mode shortcut; the privacy-settings panels see the binary path, not the parent process.
 
@@ -80,8 +80,8 @@ Windows and Linux do not have this dev-mode shortcut; the privacy-settings panel
 If prompts no longer appear, TCC has cached a decision. Reset with:
 
 ```bash
-tccutil reset Microphone com.programow.voxera
-tccutil reset Accessibility com.programow.voxera
+tccutil reset Microphone com.vhtechnology.voxera
+tccutil reset Accessibility com.vhtechnology.voxera
 ```
 
 Or run `/reset-perms`. Then relaunch Vox Era.

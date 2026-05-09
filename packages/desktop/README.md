@@ -100,7 +100,7 @@ Capability grants for each are listed in `src-tauri/capabilities/default.json`.
 
 ## Configuration
 
-- `tauri.conf.json` — bundle id (`com.programow.voxera`), windows config (main + overlay), CSP allowlist (provider hostnames), bundle metadata, updater endpoint placeholder.
+- `tauri.conf.json` — bundle id (`com.vhtechnology.voxera`), windows config (main + overlay), CSP allowlist (provider hostnames), bundle metadata, updater endpoint placeholder.
 - `Cargo.toml` — Rust dependencies: `tauri`, `cpal`, `keyring`, `sqlx`, `enigo`, `objc2-av-foundation` on macOS, `windows` on Windows.
 - `package.json` — `@ai-sdk/*` for each provider, `@tauri-apps/plugin-*` for each tracked plugin.
 

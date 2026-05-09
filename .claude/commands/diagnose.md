@@ -32,10 +32,10 @@ Fix hint: "Not in the Vox Era repo root."
 ### Bundle identifier matches
 
 ```bash
-grep -q '"identifier": "com.programow.voxera"' packages/desktop/src-tauri/tauri.conf.json
+grep -q '"identifier": "com.vhtechnology.voxera"' packages/desktop/src-tauri/tauri.conf.json
 ```
 
-Fix hint: "`tauri.conf.json` identifier drift — should be `com.programow.voxera`."
+Fix hint: "`tauri.conf.json` identifier drift — should be `com.vhtechnology.voxera`."
 
 ## macOS
 
@@ -62,7 +62,7 @@ test -d "/Applications/Vox Era.app"
 
 Not an automatic ✗ — print informational "Vox Era.app not installed (run `/build-clean`)." if absent.
 
-### TCC for `com.programow.voxera`
+### TCC for `com.vhtechnology.voxera`
 
 Informational only — `tccutil` cannot read state, only reset. Suggest: "System Settings → Privacy & Security → Microphone / Accessibility — confirm `Vox Era` is enabled."
 
