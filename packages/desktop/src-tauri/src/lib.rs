@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod clipboard;
 pub mod history;
+pub mod paste;
 pub mod secrets;
 pub mod settings;
 pub mod shortcut;
