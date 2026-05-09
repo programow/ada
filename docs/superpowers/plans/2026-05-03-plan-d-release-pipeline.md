@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Provision AWS infrastructure via Pulumi (S3 + CloudFront + ACM + IAM/OIDC role) plus Cloudflare DNS records (zone + ACM validation + apex/www CNAMEs), wire up the full release pipeline (Apple notarization + GPG-signed deb/rpm + apt/dnf repos + minisign-signed Tauri auto-update manifest + landing deploy), implement the `/release` slash command, ship a first signed test release `v0.1.0-alpha` validating end-to-end, then complete Phase 4 cleanup (delete `legacy/electron/`, finalize all docs, merge `tech-stack` to `main`).
+**Goal:** Provision AWS infrastructure via Pulumi (S3 + CloudFront + ACM + IAM/OIDC role) plus Cloudflare DNS records (zone + ACM validation + apex/www CNAMEs), wire up the full release pipeline (Apple notarization + GPG-signed deb/rpm + apt/dnf repos + minisign-signed Tauri auto-update manifest + landing deploy), implement the `/release` slash command, ship a first signed test release `v0.1.0-alpha` validating end-to-end, then complete Phase 4 cleanup (delete `legacy/electron/`, finalize all docs, merge `execution` to `main`).
 
 **Architecture:** GitHub Actions tag-triggered workflow on `v*` tags. Three platform build jobs (macOS DMG signed+notarized via Apple Developer ID, Windows NSIS unsigned, Linux AppImage+deb+rpm GPG-signed). Aggregation job generates `latest.json` (minisign-signed) + apt repo (`aptly` + GPG-signed metadata) + dnf repo (`createrepo_c` + GPG-signed metadata), syncs to S3, invalidates CloudFront. Production landing deploy in same workflow. Manual prerequisites: GPG keypair, minisign keypair, Apple cert + notarization key, AWS infra.
 
@@ -1470,7 +1470,7 @@ git commit -m "docs: finalize root README and CLAUDE.md for Vox Era end state"
 
 ---
 
-### Task 19: Open the PR for `tech-stack` and merge
+### Task 19: Open the PR for `execution` and merge
 
 **Files:** none (PR + merge actions)
 
@@ -1479,7 +1479,7 @@ git commit -m "docs: finalize root README and CLAUDE.md for Vox Era end state"
 - [ ] **Step 1: Open the PR**
 
 ```bash
-gh pr create --base main --head tech-stack --title "Vox Era: Tauri monorepo migration (Plans A–D)" --body "$(cat <<'EOF'
+gh pr create --base main --head execution --title "Vox Era: Tauri monorepo migration (Plans A–D)" --body "$(cat <<'EOF'
 ## Summary
 
 - Bun monorepo with `@vox-era/desktop` and `@vox-era/landing`
@@ -1520,9 +1520,11 @@ gh pr merge --rebase --delete-branch
 - [ ] **Step 3: Delete the branch**
 
 ```bash
-git checkout main && git pull && git branch -d tech-stack
-git push origin --delete tech-stack
+git checkout main && git pull && git branch -d execution
+git push origin --delete execution
 ```
+
+The `tech-stack` branch is preserved on `origin` as the planning/spec record. Don't delete it.
 
 ---
 
@@ -1539,6 +1541,6 @@ At this point:
 - [x] `/release` slash command
 - [x] `docs/build-and-release.md`, `docs/install-linux.md`, `docs/ci-cd.md`, `docs/aws-setup.md`
 - [x] Phase 4 cleanup: `legacy/electron/` deleted, all forward-looking Ada references replaced, root README + CLAUDE.md reflect end state
-- [x] `tech-stack` merged to `main` via PR
+- [x] `execution` merged to `main` via PR (`tech-stack` preserved as planning record)
 
 **Vox Era is live.**

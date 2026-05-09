@@ -2,7 +2,8 @@
 
 **Date:** 2026-05-03
 **Status:** Draft (awaiting user review)
-**Branch:** `tech-stack`
+**Planning branch:** `tech-stack` (where this spec was authored)
+**Implementation branch:** `execution` (created from `tech-stack` at the start of Plan A; all Plan A–D work commits here, then merges to `main` at the end of Plan D)
 **Project name:** **Vox Era**
 **Domain:** **vox-era.com**
 **GitHub repo:** **programow/vox-era**
@@ -310,7 +311,7 @@ Each phase ends with explicit documentation update steps so the repo is never in
    - Update root `CLAUDE.md` final state: monorepo overview, packages summary, slash commands inventory, links to all docs/ entries.
    - Update top-level `README.md` final state: short pitch + install per OS + links to landing site at `vox-era.com`.
 
-**Branching:** all of this happens on `tech-stack` (current branch), then merges to `main` via PR(s). Multiple PRs will likely be opened — see implementation plan for sequencing.
+**Branching:** Plan A creates a new `execution` branch from `tech-stack` and switches to it (Task 1, Step 4). All Plan A–D commits land on `execution`. The final PR (Plan D Task 19) merges `execution` → `main`. The `tech-stack` branch is preserved as the planning/spec record — it does not receive implementation commits. Multiple PRs may be opened from `execution` if the implementor prefers smaller chunks; default is one bundled PR at the end of Plan D.
 
 ### 5.1 Documentation update discipline (cross-cutting rule)
 

@@ -15,16 +15,16 @@
 
 ## Section 1: Pre-flight & legacy archive
 
-### Task 1: Pre-flight checks
+### Task 1: Pre-flight checks + create the `execution` branch
 
-**Files:** none (verification only)
+**Files:** none (verification + branch creation; skills commit if present)
 
 **Steps:**
 
-- [ ] **Step 1: Verify branch and clean tree**
+- [ ] **Step 1: Verify on `tech-stack` (parent branch)**
 
 Run: `git status && git rev-parse --abbrev-ref HEAD`
-Expected: working tree clean; current branch is `tech-stack`. If not on `tech-stack`, switch with `git switch tech-stack` or stop and ask.
+Expected: current branch is `tech-stack`. Working tree may have uncommitted `.claude/skills/` files from the planning session — those get committed in Step 5. If not on `tech-stack`, switch with `git switch tech-stack` or stop and ask.
 
 - [ ] **Step 2: Verify spec file exists**
 
@@ -36,7 +36,24 @@ Expected: `OK`
 Run: `ls -1 main.js preload.js renderer.js index.html paste-helper paste-helper.swift entitlements.plist 2>&1`
 Expected: each file listed with no "No such file" errors.
 
-No commit for this task; it's verification.
+- [ ] **Step 4: Create the `execution` branch from `tech-stack` and switch to it**
+
+```bash
+git switch -c execution
+```
+Expected: "Switched to a new branch 'execution'". All subsequent Plan A tasks (and Plans B/C/D) commit to `execution`. The final PR (Plan D Task 19) merges `execution` → `main`. The `tech-stack` branch is preserved as the planning/spec record and receives no implementation commits.
+
+- [ ] **Step 5: Commit pre-existing project-local skills if uncommitted**
+
+The planning session may have left `.claude/skills/{tauri-2-app-development, pulumi-self-hosted-iac, tauri-release-and-distribution, ai-sdk-transcribe}/SKILL.md` as uncommitted files in the working tree. Commit them now so they travel with `execution`:
+
+```bash
+if [ -n "$(git status --porcelain .claude/skills/ 2>/dev/null)" ]; then
+  git add .claude/skills/
+  git commit -m "feat(claude): add project-local skills for tooling reference"
+fi
+```
+Expected: either the skills commit lands, or no-op if they were already committed.
 
 ---
 
@@ -669,7 +686,7 @@ AI dev workflow guide for Vox Era — a cross-platform speech-to-text desktop ap
 
 ## What Vox Era is
 
-**Vox Era** is the new Tauri-based version of what was originally **Ada** (a macOS-only Electron app). The migration is in flight on branch `tech-stack`. The legacy Electron app lives under `legacy/electron/` for reference and is removed at the end of Plan D.
+**Vox Era** is the new Tauri-based version of what was originally **Ada** (a macOS-only Electron app). The migration is in flight on branch `execution` (branched from `tech-stack` at the start of Plan A; final PR `execution` → `main` lives at the end of Plan D). The legacy Electron app lives under `legacy/electron/` for reference and is removed at the end of Plan D.
 
 - **Display name:** Vox Era
 - **URL slug:** `vox-era`
@@ -1161,9 +1178,9 @@ Expected: `gh` version printed; logged in to github.com. If not logged in, run `
 - [ ] **Step 1: Push current branch to origin**
 
 ```bash
-git push -u origin tech-stack
+git push -u origin execution
 ```
-Expected: `tech-stack` branch pushed to `origin`.
+Expected: `execution` branch pushed to `origin`.
 
 - [ ] **Step 2: Rename the repo on GitHub via `gh` CLI**
 
@@ -1188,15 +1205,15 @@ Expected: origin URL is `git@github.com:programow/vox-era.git`.
 
 Classic branch protection rules require GitHub Pro or higher on private repos, and the repo is private until launch. Skipping protection setup for now — it can be added in Plan D once the repo goes public (or whenever you upgrade). Two-person honor system in the meantime: open PRs, let CI run, don't merge red.
 
-Visit `https://github.com/programow/vox-era/actions` after pushing `tech-stack` and confirm the `Lint & Typecheck` workflow runs and passes.
+Visit `https://github.com/programow/vox-era/actions` after pushing `execution` and confirm the `Lint & Typecheck` workflow runs and passes.
 
-- [ ] **Step 5: Open a PR for `tech-stack` and verify CI runs**
+- [ ] **Step 5: Open a PR for `execution` and verify CI runs**
 
-Visit `https://github.com/programow/vox-era/compare/main...tech-stack`, open a PR titled "Plan A: monorepo bootstrap".
+Visit `https://github.com/programow/vox-era/compare/main...execution`, open a PR titled "Plan A: monorepo bootstrap".
 
 Expected: `Lint & Typecheck` job runs and passes. PR is mergeable (after approval if you've configured one).
 
-Do NOT merge this PR yet. The tech-stack branch carries Plans B, C, and D's work too. Plan A's tasks are merged when the full migration ships, or split into separate PRs at the implementor's discretion.
+Do NOT merge this PR yet. The `execution` branch carries Plans B, C, and D's work too. Plan A's tasks are merged when the full migration ships (Plan D Task 19), or split into separate PRs at the implementor's discretion.
 
 ---
 
