@@ -2,11 +2,34 @@
   "name": "@vox-era/landing",
   "private": true,
   "version": "0.0.0",
-  "description": "Vox Era landing page (Next.js static) — implementation in Plan C",
   "scripts": {
-    "typecheck": "echo 'landing typecheck — implemented in Plan C' && exit 0",
-    "test": "echo 'landing test — implemented in Plan C' && exit 0",
-    "test:unit": "echo 'landing test:unit — implemented in Plan C' && exit 0",
-    "test:integration": "echo 'landing test:integration — implemented in Plan C' && exit 0"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run --dir src",
+    "test:integration": "echo 'landing test:integration — implemented in Plan C Section 6' && exit 0",
+    "test:e2e": "echo 'landing test:e2e — implemented in Plan C Section 6' && exit 0",
+    "test:e2e:install": "playwright install --with-deps"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.0",
+    "happy-dom": "^15.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
   }
 }
