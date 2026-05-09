@@ -26,7 +26,7 @@ describe('fetchReleases', () => {
     it('returns parsed releases', async () => {
         const releases = await fetchReleases('programow/vox-era');
         expect(releases).toHaveLength(1);
-        expect(releases[0].tag).toBe('v1.0.0');
+        expect(releases[0]?.tag).toBe('v1.0.0');
     });
 
     it('returns empty array when fetch fails', async () => {
