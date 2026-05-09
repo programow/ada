@@ -1,7 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dashboard } from './Dashboard';
 import { History } from './History';
+import { SettingsHistory } from './SettingsHistory';
+import { SettingsOverlay } from './SettingsOverlay';
 import { SettingsProviders } from './SettingsProviders';
+import { SettingsRecording } from './SettingsRecording';
+import { SettingsTheme } from './SettingsTheme';
+import { SettingsUpdates } from './SettingsUpdates';
 
 export function MainWindow() {
     return (
@@ -23,8 +28,17 @@ export function MainWindow() {
                 <TabsContent value="history" data-testid="panel-history">
                     <History entries={[]} />
                 </TabsContent>
-                <TabsContent value="settings" data-testid="panel-settings">
+                <TabsContent
+                    value="settings"
+                    data-testid="panel-settings"
+                    className="flex flex-col gap-6"
+                >
                     <SettingsProviders />
+                    <SettingsRecording devices={[]} />
+                    <SettingsOverlay />
+                    <SettingsHistory />
+                    <SettingsTheme />
+                    <SettingsUpdates />
                 </TabsContent>
                 <TabsContent value="about" data-testid="panel-about">
                     <p className="text-sm">About placeholder.</p>
