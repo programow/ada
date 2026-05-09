@@ -1,95 +1,89 @@
 ---
-description: Run the full clean build & install ritual for Ada. Resets TCC, rebuilds, re-signs with entitlements. Destructive — confirms before deleting.
+description: Full clean build & install ritual for Vox Era (Tauri). Resets TCC on macOS, rebuilds, copies the bundle.
 ---
 
-Run Ada's five-step clean build & install ritual end-to-end. The full
-rationale for each step is in `docs/build-and-release.md`. Do not
-skip any step — in particular, step 5 (re-sign with entitlements) is
-the entire reason this command exists.
+Run the cross-platform clean-build ritual for Vox Era. The full rationale lives in `docs/build-and-release.md` (written in Plan D); this command is the operational entry point.
+
+Vox Era uses Tauri 2 (not Electron). The bundle identifier is `com.programow.voxera`. The packaged app name is `Vox Era`.
 
 ## Preflight
 
-Before running anything, confirm the working directory is the Ada
-repo root:
+Confirm the working directory is the Vox Era repo root:
 
 ```bash
-test -f main.js && test -f entitlements.plist && test -f package.json
+test -f packages/desktop/src-tauri/tauri.conf.json && \
+  test -f packages/desktop/package.json
 ```
 
-If any check fails, abort with: "Not in the Ada repo root. Refusing to run destructive build steps."
+If either check fails, abort with: "Not in the Vox Era repo root. Refusing to run destructive build steps."
 
-## Confirm with the user
+Detect the host OS via `uname -s` and dispatch.
 
-Print these five steps that are about to run:
+## macOS
 
-1. `tccutil reset` Microphone + Accessibility for `com.programow.ada`
-2. `rm -rf /Applications/Ada.app dist/`
-3. `npm run build`
-4. `cp -R dist/mac-arm64/Ada.app /Applications/Ada.app`
-5. `codesign --force --deep --sign - --entitlements entitlements.plist /Applications/Ada.app`
+### Confirm with the user
 
-Then ask: "This will delete `/Applications/Ada.app` and `dist/`. Proceed?"
-Wait for explicit confirmation. If the user declines, stop.
+Print the steps that are about to run and ask for confirmation before any destructive op:
 
-## Run the ritual
+1. `tccutil reset Microphone com.programow.voxera`
+2. `tccutil reset Accessibility com.programow.voxera`
+3. `rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/`
+4. `cd packages/desktop && bun run tauri:build`
+5. `cp -R "packages/desktop/src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"`
 
-Run the steps sequentially. Halt on the first non-zero exit and report which step failed:
+Ask: "This will delete `/Applications/Vox Era.app` and the Tauri release bundle output. Proceed?" Wait for confirmation.
 
-### Step 1: Reset TCC
+### Run the ritual
+
+Halt on the first non-zero exit and report which step failed.
 
 ```bash
-tccutil reset Microphone com.programow.ada
-tccutil reset Accessibility com.programow.ada
+# 1-2: Reset TCC. tccutil exits non-zero when no entry exists; treat that as success.
+tccutil reset Microphone com.programow.voxera || true
+tccutil reset Accessibility com.programow.voxera || true
+
+# 3: Remove the previous install + bundle output.
+rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/
+
+# 4: Build (signed via the configured signing identity if set; otherwise ad-hoc).
+cd packages/desktop && bun run tauri:build
+
+# 5: Install.
+cp -R "src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"
 ```
 
-`tccutil reset` may exit non-zero if the bundle id has no existing TCC
-entry; treat that specific case as success and continue.
+### Verify
 
-### Step 2: Remove the previous install and dist
+Unlike the Electron-era Ada, **Tauri does not require a manual `--deep` re-sign step**. Tauri's bundler propagates entitlements correctly into nested binaries during `tauri build`. To confirm the entitlement landed:
 
 ```bash
-rm -rf /Applications/Ada.app dist/
+codesign -d --entitlements - "/Applications/Vox Era.app" 2>&1 | grep 'com.apple.security.device.audio-input'
 ```
 
-### Step 3: Build
+If the grep finds nothing, `entitlements.plist` was not picked up — check `tauri.conf.json` `bundle.macOS.entitlements`.
 
-```bash
-npm run build
+## Linux
+
+### Confirm with the user
+
+1. `rm -rf packages/desktop/src-tauri/target/release/bundle/`
+2. `cd packages/desktop && bun run tauri:build`
+3. `sudo dpkg -i src-tauri/target/release/bundle/deb/Vox*.deb` (or `sudo rpm -i ...rpm` on Fedora)
+
+Wait for confirmation before running step 3 (sudo).
+
+Deb runtime dependencies are declared in `tauri.conf.json` under `bundle.linux.deb.depends`: `libwebkit2gtk-4.1-0`, `libayatana-appindicator3-1`.
+
+## Windows
+
+```powershell
+cd packages\desktop
+bun run tauri:build
+Start-Process "src-tauri\target\release\bundle\msi\Vox Era_*_x64_en-US.msi"
 ```
 
-This runs electron-builder and produces `dist/mac-arm64/Ada.app`.
-Report progress; the build can take 30–60 seconds.
+## After install
 
-### Step 4: Install
+Launch Vox Era. macOS will prompt for Microphone, then later (when the global shortcut fires for the first time) for Accessibility. Approve both. If no prompts appear, run `/reset-perms` and relaunch — a previous denial may be cached.
 
-```bash
-cp -R dist/mac-arm64/Ada.app /Applications/Ada.app
-```
-
-### Step 5: Re-sign with entitlements (critical)
-
-```bash
-codesign --force --deep --sign - --entitlements entitlements.plist /Applications/Ada.app
-```
-
-Do not skip this step. Do not omit `--deep`. Do not omit `--entitlements entitlements.plist`.
-
-## Verify
-
-After step 5, confirm entitlements stuck:
-
-```bash
-codesign -d --entitlements - /Applications/Ada.app 2>&1 | grep 'com.apple.security.device.audio-input'
-```
-
-Expected: a line containing the entitlement key. If the grep finds
-nothing, step 5 didn't apply — report the failure to the user.
-
-## Done
-
-If everything succeeded, tell the user:
-
-> Build clean. Launch Ada from `/Applications/Ada.app`. macOS will
-> prompt for Microphone access; later, when you press the shortcut,
-> for Accessibility. Approve both. If no prompts appear, run
-> `/diagnose-mic`.
+For symptom-keyed troubleshooting, see `docs/troubleshooting.md` (Plan D).
