@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod secrets;
+pub mod settings;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
