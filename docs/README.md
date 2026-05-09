@@ -26,3 +26,4 @@ Long-form docs for Vox Era. Most of these are written across Plans B and D as th
 - [`../packages/desktop/README.md`](../packages/desktop/README.md) — Tauri app specifics. **Written in Plan B.**
 - [`../packages/landing/README.md`](../packages/landing/README.md) — Next.js landing specifics. **Written in Plan C.**
 - [`../packages/infra/README.md`](../packages/infra/README.md) — Pulumi IaC specifics (AWS + Cloudflare DNS). **Written in Plan D.**
+
