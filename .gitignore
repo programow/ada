@@ -3,3 +3,5 @@ config.json
 dist/
 # docs/superpowers/
 docs/sessions/
+
+.DS_Store
