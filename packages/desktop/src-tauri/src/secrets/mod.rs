@@ -22,6 +22,33 @@ pub trait Vault: Send + Sync {
     fn list_configured(&self) -> Result<Vec<String>, SecretsError>;
 }
 
+#[derive(Clone)]
+pub struct SecretKey(Zeroizing<String>);
+
+impl SecretKey {
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for SecretKey {
+    fn from(s: &str) -> Self {
+        Self(Zeroizing::new(s.to_string()))
+    }
+}
+
+impl From<String> for SecretKey {
+    fn from(s: String) -> Self {
+        Self(Zeroizing::new(s))
+    }
+}
+
+impl std::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SecretKey(redacted)")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,5 +84,13 @@ mod tests {
         let mut ids = v.list_configured().unwrap();
         ids.sort();
         assert_eq!(ids, vec!["groq".to_string(), "openai".to_string()]);
+    }
+
+    #[test]
+    fn debug_format_redacts_value() {
+        let key = SecretKey::from("sk-real-key-123");
+        let formatted = format!("{:?}", key);
+        assert!(!formatted.contains("sk-real-key-123"));
+        assert!(formatted.contains("redacted"));
     }
 }
