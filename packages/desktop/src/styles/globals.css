@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --bg: 60 100% 95%;
+        --fg: 0 0% 0%;
+        --main: 50 100% 65%;
+        --main-foreground: 0 0% 0%;
+        --border: 0 0% 0%;
+    }
+    .dark {
+        --bg: 240 6% 10%;
+        --fg: 0 0% 95%;
+        --main: 50 100% 55%;
+        --main-foreground: 0 0% 0%;
+        --border: 0 0% 0%;
+    }
+}
+
+@layer base {
+    * { border-color: hsl(var(--border)); }
+    body {
+        background-color: hsl(var(--bg));
+        color: hsl(var(--fg));
+        font-family: theme('fontFamily.sans');
+    }
+}
