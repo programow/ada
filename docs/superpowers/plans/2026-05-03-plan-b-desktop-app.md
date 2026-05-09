@@ -40,7 +40,7 @@ cd packages
 bunx create-tauri-app@latest desktop \
   --manager bun \
   --template react-ts \
-  --identifier com.programow.voxera
+  --identifier com.vhtechnology.voxera
 cd ..
 ```
 Expected: `packages/desktop/` is created with Tauri 2 scaffold (React + Vite + TS frontend, Rust backend in `src-tauri/`).
@@ -171,7 +171,7 @@ If different, replace with the above.
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Vox Era",
   "version": "0.0.0",
-  "identifier": "com.programow.voxera",
+  "identifier": "com.vhtechnology.voxera",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -3647,7 +3647,7 @@ git commit -m "test(desktop): functional test of full transcribe flow with MSW +
 - Create: `.claude/commands/add-provider.md`
 - Create: `.claude/commands/diagnose.md`
 - Modify: `.claude/commands/build-clean.md` (replace Electron version)
-- Modify: `.claude/commands/reset-perms.md` (update bundle id to `com.programow.voxera`)
+- Modify: `.claude/commands/reset-perms.md` (update bundle id to `com.vhtechnology.voxera`)
 
 **Steps:**
 

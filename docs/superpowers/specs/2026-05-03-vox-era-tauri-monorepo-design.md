@@ -7,7 +7,7 @@
 **Project name:** **Vox Era**
 **Domain:** **vox-era.com**
 **GitHub repo:** **programow/vox-era**
-**Bundle id (macOS):** **com.programow.voxera**
+**Bundle id (macOS):** **com.vhtechnology.voxera**
 **Package ids (npm scope):** **@vox-era/desktop**, **@vox-era/landing**
 **Cargo crate name:** **voxera**
 **Convention:** "Vox Era" for display, "vox-era" for URL slugs, "voxera" for identifiers that don't allow hyphens (bundle id, crate name).
@@ -20,7 +20,7 @@ Migrate the existing macOS-only Electron speech-to-text app (originally named "A
 
 1. **`packages/desktop`** (`@vox-era/desktop`) — a Tauri 2.x desktop app (macOS + Windows + Linux) with React + TypeScript frontend, Rust backend, multi-provider STT via Vercel AI SDK, OS-keychain-backed BYOK, SQLite-backed transcription history & stats, signed auto-update, and a Wispr-Flow-style overlay UI.
 2. **`packages/landing`** (`@vox-era/landing`) — a Next.js static landing site (3 routes) deployed to S3 + CloudFront under `vox-era.com`.
-3. **`packages/infra`** (`@vox-era/infra`) — Pulumi (TypeScript) infrastructure-as-code managing AWS (S3 site bucket, CloudFront distribution, ACM cert, IAM/OIDC role) and Cloudflare DNS (zone records + ACM validation + apex/www CNAMEs). Self-hosted state in S3, secrets encrypted via AWS KMS — no Pulumi Cloud account required.
+3. **`packages/infra`** (`@vox-era/infra`) — Pulumi (TypeScript) infrastructure-as-code managing AWS (S3 site bucket, CloudFront distribution, ACM cert, IAM/OIDC role) and Cloudflare DNS (zone records + ACM validation + apex/www CNAMEs). State and secrets managed by **Pulumi Cloud** under the maintainer's personal account (`guilherme-vozniak-a-gmail-com`). Stack identifier: `guilherme-vozniak-a-gmail-com/vox-era/prod`.
 
 The project ships with a comprehensive AI-assisted development workflow (slash commands, skills, docs, conventional commits, lefthook hooks, GitHub Actions CI with PR previews, signed release pipeline).
 
@@ -92,7 +92,7 @@ The current `main` branch (commit `4ce0e85`) is a working macOS-only Electron ap
 | Auto-update | S3-hosted manifest, minisign-signed | Stable URL, no rate limits, no shape translation |
 | License | Apache 2.0 | Patent grant + trademark protection |
 | Telemetry | Zero | BYOK + privacy is the differentiator |
-| IaC tool | Pulumi (TypeScript) self-hosted on S3 | Matches the TS-heavy stack; no Pulumi Cloud account; AWS-native state backend |
+| IaC tool | Pulumi (TypeScript) on Pulumi Cloud (personal account) | Matches the TS-heavy stack; Pulumi Cloud handles state + secrets management with zero infra bootstrap; free for personal use |
 | DNS | Cloudflare (zone hosted there; proxy OFF / DNS-only) | User registered the domain at Cloudflare; AWS still terminates SSL via CloudFront + ACM |
 | AWS access | OIDC role assumption from CI; profile `voxera` locally | No long-lived static keys in CI; profile `voxera` keeps local commands aligned with the right AWS account |
 
@@ -879,7 +879,7 @@ Tests run a generic test suite per provider (validates the contract: SDK is call
 - **AWS S3** bucket `vox-era-prod` in `us-east-1`, public read for site assets.
 - **CloudFront** distribution in front of S3 for HTTPS termination, custom domain `vox-era.com` (and `www.vox-era.com` CNAME), edge caching.
 - **DNS: Cloudflare** (the user registered the domain there). Cloudflare proxy is OFF (DNS-only / gray cloud) so CloudFront's ACM cert serves SSL directly. ACM cert validation records and apex/www CNAMEs to CloudFront are managed in the same Cloudflare zone.
-- **All AWS + Cloudflare resources are provisioned via Pulumi** in `packages/infra/`, not raw CLI. State self-hosted at `s3://vox-era-pulumi-state`; secrets encrypted via AWS KMS (`alias/voxera-pulumi`). AWS provider configured with `profile: 'voxera'`. Cloudflare provider uses an API token stored encrypted in Pulumi stack config.
+- **All AWS + Cloudflare resources are provisioned via Pulumi** in `packages/infra/`, not raw CLI. State and secrets are managed by Pulumi Cloud under the personal account `guilherme-vozniak-a-gmail-com` (stack: `guilherme-vozniak-a-gmail-com/vox-era/prod`). AWS provider configured with `profile: 'voxera'`. Cloudflare provider uses an API token stored as a Pulumi-encrypted stack config secret.
 - **Single bucket** with prefix layout:
   - `/` — Next.js `out/` deployed here
   - `/updates/latest.json` — Tauri auto-update manifest
@@ -1202,7 +1202,7 @@ Each is a markdown file with YAML frontmatter (`description`) and a body prompt 
 | `/add-provider <id>` | Scaffold new provider: create `src/providers/<id>.ts`, append to `PROVIDERS` array in `index.ts`, scaffold test file with the standard provider contract test, **and update `docs/providers.md` + provider grid in landing**. |
 | `/build-clean` | Local clean build of desktop app: clean dist, build, sign, install, verify. Updated for Tauri. |
 | `/diagnose` | Read-only diagnostic: check permissions per platform, verify configured providers, check DB state, check current version vs `latest.json`. |
-| `/reset-perms` | macOS-only: `tccutil reset Microphone com.programow.voxera`. Documented as last-resort. |
+| `/reset-perms` | macOS-only: `tccutil reset Microphone com.vhtechnology.voxera`. Documented as last-resort. |
 | `/sync-docs` | Audit pass: scan changes since last commit, identify which docs need updating per the trigger table in §5.1, propose patches. Run before opening a PR. |
 
 ### 13.2 Documentation (`docs/`)
@@ -1260,12 +1260,12 @@ Final naming:
 | Identifier (no hyphens) | `voxera` | Used where hyphens are disallowed or discouraged: macOS bundle id, Cargo crate name, internal symbol names. |
 | Domain | `vox-era.com` | Primary site + auto-update manifest + apt/dnf repos. `www.vox-era.com` redirects to apex. |
 | GitHub repo | `programow/vox-era` | |
-| macOS bundle id | `com.programow.voxera` | |
+| macOS bundle id | `com.vhtechnology.voxera` | |
 | npm scope | `@vox-era` | Packages: `@vox-era/desktop`, `@vox-era/landing`. |
 | Cargo crate | `voxera` | In `packages/desktop/src-tauri/Cargo.toml`. |
 | Linux package name | `vox-era` | The deb/rpm package id; `apt install vox-era`. |
 | Service/account in OS keychain | `vox-era` (service), `<provider-id>` (account) | |
-| App data dir | `com.programow.voxera/` | Tauri's `app_data_dir()` resolves under the bundle id on each OS. |
+| App data dir | `com.vhtechnology.voxera/` | Tauri's `app_data_dir()` resolves under the bundle id on each OS. |
 | SQLite db file | `vox-era.db` | |
 | GPG key file | `vox-era-releases.gpg` | Hosted at `vox-era.com/keys/`. |
 | Apt sources file (user installs) | `/etc/apt/sources.list.d/vox-era.list` | |
@@ -1343,7 +1343,7 @@ Documented here so future-us doesn't accidentally re-derive these.
 
 | Risk | Mitigation |
 |---|---|
-| Pulumi state bucket loss/corruption | State bucket has versioning + encryption-at-rest enabled; bucket is private with all public access blocked. Recovery: `aws s3api list-object-versions` to find prior state versions, `pulumi stack import` to restore. KMS key for secrets has automatic 30-day deletion grace period if accidentally scheduled for deletion. |
+| Pulumi Cloud account loss / takeover | Pulumi Cloud retains state history per stack, so accidental destructive `pulumi up`s can be reverted with `pulumi stack history` + `pulumi stack export/import`. The personal Pulumi account uses 2FA (mandatory for any maintainer with write access). For a worst-case account loss, `pulumi stack export` is captured as a release-time CI artifact so we always have an offline copy. CI authenticates via a `PULUMI_ACCESS_TOKEN` GitHub Secret which is rotatable independently of the account password. |
 | Cloudflare API token compromise | Token is scoped to `vox-era.com` zone only with Zone:Read + DNS:Edit (no account-level perms). Rotation: generate new token, `pulumi config set --secret cloudflareApiToken <new>`, `pulumi up` (no resource churn), revoke old token in Cloudflare. |
 | AI SDK STT provider list churns (provider added/removed/renamed) | Per-provider adapter is one isolated file; updates are PR-sized. Validated against current docs at spec time; expect drift over months. |
 | `experimental_transcribe` may rename when it graduates from experimental | Single import in `src/lib/transcribe.ts`; rename is a one-line change + test update. Track AI SDK release notes in `dependabot` PRs. |
@@ -1369,8 +1369,8 @@ Documented here so future-us doesn't accidentally re-derive these.
 3. **GPG keypair generation.** Manual one-time step in Plan D Task 1 (~15 min). Private key + passphrase pushed to GitHub Secrets via `gh secret set`.
 4. **Apple Developer credentials.** User has the account. .p12 cert + App Store Connect API key (.p8) base64-encoded and pushed to GitHub Secrets in Plan D Task 3.
 5. **Tauri minisign keypair.** Generated via `bunx @tauri-apps/cli signer generate` in Plan D Task 2. Public key embedded in `tauri.conf.json`; private key + passphrase to GitHub Secrets.
-6. **Cloudflare API token.** Generated manually at `https://dash.cloudflare.com/profile/api-tokens` with Zone:Read + DNS:Edit scope for the `vox-era.com` zone (Plan D Task 4 Step 3). Stored encrypted in Pulumi stack config (`pulumi config set --secret cloudflareApiToken ...`).
-7. **AWS bootstrap (one-time, raw `aws --profile voxera`).** Create the Pulumi state bucket `vox-era-pulumi-state` (versioned, encrypted, private) and the AWS KMS key with alias `alias/voxera-pulumi` (Plan D Task 4 Steps 1-2). Pulumi can't manage its own state bucket, so this is the chicken-and-egg bootstrap.
+6. **Cloudflare API token.** Generated manually at `https://dash.cloudflare.com/profile/api-tokens` with Zone:Read + DNS:Edit scope for the `vox-era.com` zone (Plan D Task 4 Step 2). Stored as a Pulumi-encrypted stack config secret (`pulumi config set --secret cloudflareApiToken ...`).
+7. **Pulumi Cloud login (one-time).** `pulumi login` (the user is already authenticated under personal account `guilherme-vozniak-a-gmail-com`); CI uses a long-lived `PULUMI_ACCESS_TOKEN` from `https://app.pulumi.com/account/tokens` (Plan D Task 4 Step 1). No AWS state bucket or KMS key needed — Pulumi Cloud manages state and secrets server-side.
 8. **AWS infrastructure provisioning via Pulumi.** S3 site bucket `vox-era-prod`, CloudFront distribution, ACM cert (DNS-validated via Cloudflare records), IAM OIDC provider + `vox-era-ci` role, plus Cloudflare DNS records (apex, www, validation) all defined in `packages/infra/index.ts` (Plan D Task 5).
 9. **Additional features the user mentioned post-spec.** User said: "after we ported the application and get rid of the old application, I should mention to you the features, and you should review to see if we need to adjust anything in our plan." This spec covers the migration baseline. Once the user mentions new features, we re-review this spec and adjust before transitioning to the implementation plan.
 

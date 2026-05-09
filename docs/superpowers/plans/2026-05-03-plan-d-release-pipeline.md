@@ -6,7 +6,7 @@
 
 **Architecture:** GitHub Actions tag-triggered workflow on `v*` tags. Three platform build jobs (macOS DMG signed+notarized via Apple Developer ID, Windows NSIS unsigned, Linux AppImage+deb+rpm GPG-signed). Aggregation job generates `latest.json` (minisign-signed) + apt repo (`aptly` + GPG-signed metadata) + dnf repo (`createrepo_c` + GPG-signed metadata), syncs to S3, invalidates CloudFront. Production landing deploy in same workflow. Manual prerequisites: GPG keypair, minisign keypair, Apple cert + notarization key, AWS infra.
 
-**Tech Stack:** GitHub Actions, Apple `notarytool`, minisign (`tauri signer`), GPG, `aptly`, `createrepo_c`, AWS S3 + CloudFront + ACM + IAM/OIDC, Cloudflare DNS, Pulumi (TypeScript) for IaC with self-hosted S3 state backend + AWS KMS secrets provider, Tauri's bundling pipeline. AWS profile: `voxera`.
+**Tech Stack:** GitHub Actions, Apple `notarytool`, minisign (`tauri signer`), GPG, `aptly`, `createrepo_c`, AWS S3 + CloudFront + ACM + IAM/OIDC, Cloudflare DNS, Pulumi (TypeScript) for IaC managed by **Pulumi Cloud** under personal account `guilherme-vozniak-a-gmail-com` (state + secrets handled server-side; no S3/KMS bootstrap), Tauri's bundling pipeline. AWS profile: `voxera`.
 
 **Depends on:** Plans A (monorepo + base CI), B (desktop app to release), C (landing to deploy production-ready).
 **Blocks:** Nothing — Plan D is the final plan.
@@ -15,7 +15,7 @@
 
 ## Section 1: Manual prerequisites — keys, certs, accounts, infra bootstrap
 
-These tasks involve human-only setup steps. Each task documents the exact commands; credentials are set via the `gh secret set` CLI rather than the GitHub web UI. AWS commands all run with `--profile voxera` so they target the right AWS account. Pulumi state lives in S3 (no Pulumi Cloud account needed); secrets in state are encrypted via an AWS KMS key we bootstrap manually.
+These tasks involve human-only setup steps. Each task documents the exact commands; credentials are set via the `gh secret set` CLI rather than the GitHub web UI. AWS commands all run with `--profile voxera` so they target the right AWS account. Pulumi state and secrets are managed by Pulumi Cloud under the personal account `guilherme-vozniak-a-gmail-com` — no S3 state bucket, no AWS KMS key, no chicken-and-egg bootstrap.
 
 **Pre-flight (once, before Section 1):**
 
@@ -172,36 +172,30 @@ Apple lets you download a key only once. Save it to your password manager.
 
 ---
 
-### Task 4: AWS bootstrap for Pulumi state (one-time, raw `aws` CLI)
+### Task 4: Pulumi Cloud login + Cloudflare API token
 
-Pulumi self-hosts its state in an S3 bucket and encrypts secrets via AWS KMS. Both have to exist before Pulumi runs (chicken-and-egg). This task creates them with raw `aws` CLI; everything else (S3 site bucket, IAM, ACM, CloudFront, Cloudflare DNS) is managed by Pulumi in Task 5.
+Pulumi Cloud manages state and secrets server-side under the maintainer's personal account `guilherme-vozniak-a-gmail-com`. No S3 bucket, no AWS KMS key, no chicken-and-egg bootstrap. Authentication happens via the Pulumi CLI (`pulumi login`) for local development and a long-lived `PULUMI_ACCESS_TOKEN` for CI.
 
-**Files:** none (one-time AWS resources)
+**Files:** none (manual environment setup)
 
 **Steps:**
 
-- [ ] **Step 1: Create the Pulumi state bucket (versioned + encrypted)**
+- [ ] **Step 1: Login to Pulumi Cloud and create a CI access token**
+
+If the local Pulumi CLI isn't already authenticated, run:
 
 ```bash
-aws --profile voxera s3api create-bucket --bucket vox-era-pulumi-state --region us-east-1
-aws --profile voxera s3api put-bucket-versioning --bucket vox-era-pulumi-state --versioning-configuration Status=Enabled
-aws --profile voxera s3api put-bucket-encryption --bucket vox-era-pulumi-state --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
-aws --profile voxera s3api put-public-access-block --bucket vox-era-pulumi-state --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+pulumi login
 ```
-Expected: bucket exists, private, encrypted, versioned. Verify: `aws --profile voxera s3api get-bucket-versioning --bucket vox-era-pulumi-state` returns `"Status": "Enabled"`.
+This opens a browser to https://app.pulumi.com to confirm. The CLI now uses the personal account `guilherme-vozniak-a-gmail-com` as the default backend (`PULUMI_BACKEND_URL` is unset, which is what we want).
 
-- [ ] **Step 2: Create the AWS KMS key for Pulumi secrets encryption**
+Then, for CI, mint a long-lived token at https://app.pulumi.com/account/tokens:
+- Description: `vox-era-ci`
+- Expiration: 1 year (rotate annually; calendar reminder)
 
-```bash
-KMS_KEY_ID=$(aws --profile voxera kms create-key \
-  --description "Vox Era Pulumi secrets encryption key" \
-  --query 'KeyMetadata.KeyId' --output text)
-aws --profile voxera kms create-alias --alias-name alias/voxera-pulumi --target-key-id "$KMS_KEY_ID"
-echo "KMS key created: $KMS_KEY_ID (alias: alias/voxera-pulumi)"
-```
-Expected: KMS key created with alias `alias/voxera-pulumi`. Verify: `aws --profile voxera kms describe-key --key-id alias/voxera-pulumi --query 'KeyMetadata.Arn' --output text`.
+Copy the token (shown once). It is pushed to GitHub Secrets in Task 5 Step 8.
 
-- [ ] **Step 3: Generate a Cloudflare API token**
+- [ ] **Step 2: Generate a Cloudflare API token**
 
 Manual UI step (one-time): go to https://dash.cloudflare.com/profile/api-tokens → "Create Token" → "Custom token". Permissions:
 - Zone → Zone → Read
@@ -213,9 +207,9 @@ Copy the generated token (shown once).
 
 Get your Cloudflare zone id from the Cloudflare dashboard → your domain → right sidebar → "Zone ID".
 
-Keep both values; Task 5 stores them in Pulumi config (encrypted via KMS).
+Keep both values; Task 5 stores them in Pulumi stack config (Pulumi-encrypted secrets).
 
-- [ ] **Step 4: Commit (no files changed; this task is environment setup)**
+- [ ] **Step 3: Commit (no files changed; this task is environment setup)**
 
 Nothing to commit. Move to Task 5.
 
@@ -290,29 +284,28 @@ Expected: deps resolve.
 name: vox-era-infra
 runtime: nodejs
 description: Vox Era infrastructure (AWS S3, CloudFront, ACM, IAM/OIDC + Cloudflare DNS)
-backend:
-  url: s3://vox-era-pulumi-state?region=us-east-1
 ```
 
-- [ ] **Step 4: Login to the self-hosted state backend, then create the stack**
+No `backend:` block — Pulumi Cloud is the default backend when the CLI is logged in to `app.pulumi.com`.
 
-```bash
-pulumi login s3://vox-era-pulumi-state?region=us-east-1
-cd packages/infra
-AWS_PROFILE=voxera pulumi stack init prod --secrets-provider="awskms://alias/voxera-pulumi?region=us-east-1&awssdk=v2"
-```
-Expected: state bucket recognized; stack `prod` created; secrets provider points at our KMS alias.
-
-- [ ] **Step 5: Set Pulumi stack config (Cloudflare zone id + token, both encrypted via KMS)**
+- [ ] **Step 4: Create the stack on Pulumi Cloud**
 
 ```bash
 cd packages/infra
-AWS_PROFILE=voxera pulumi config set --stack prod domain vox-era.com
-AWS_PROFILE=voxera pulumi config set --stack prod githubRepo programow/vox-era
-AWS_PROFILE=voxera pulumi config set --stack prod cloudflareZoneId <PASTE_ZONE_ID_FROM_TASK_4_STEP_3>
-AWS_PROFILE=voxera pulumi config set --stack prod --secret cloudflareApiToken <PASTE_TOKEN_FROM_TASK_4_STEP_3>
+pulumi stack init guilherme-vozniak-a-gmail-com/prod
 ```
-Expected: `Pulumi.prod.yaml` is updated; the API token is encrypted (shown as `secure: "..."` in the YAML).
+Expected: stack `guilherme-vozniak-a-gmail-com/vox-era-infra/prod` created on Pulumi Cloud. The state and secrets will live there. No `--secrets-provider` flag needed; Pulumi Cloud uses its built-in secrets manager by default.
+
+- [ ] **Step 5: Set Pulumi stack config (Cloudflare zone id + token, encrypted by Pulumi Cloud)**
+
+```bash
+cd packages/infra
+pulumi config set --stack prod domain vox-era.com
+pulumi config set --stack prod githubRepo programow/vox-era
+pulumi config set --stack prod cloudflareZoneId <PASTE_ZONE_ID_FROM_TASK_4_STEP_2>
+pulumi config set --stack prod --secret cloudflareApiToken <PASTE_TOKEN_FROM_TASK_4_STEP_2>
+```
+Expected: `Pulumi.prod.yaml` is updated; the API token is encrypted (shown as `secure: "..."` in the YAML — Pulumi Cloud holds the decryption key).
 
 - [ ] **Step 6: Create `packages/infra/index.ts` defining all resources**
 
@@ -519,9 +512,9 @@ Pulumi infrastructure-as-code for Vox Era. Manages AWS (S3, IAM, ACM, CloudFront
 
 ## Stack: `prod`
 
-State backend: `s3://vox-era-pulumi-state?region=us-east-1` (self-hosted, no Pulumi Cloud account).
-Secrets provider: `awskms://alias/voxera-pulumi` (AWS KMS key in the same account).
-AWS profile: `voxera`.
+State backend: Pulumi Cloud (personal account `guilherme-vozniak-a-gmail-com`, stack `guilherme-vozniak-a-gmail-com/vox-era-infra/prod`).
+Secrets provider: Pulumi Cloud (built-in, server-side encryption).
+AWS profile (for the AWS provider in resources, not for state): `voxera`.
 
 ## Day-to-day
 
@@ -541,13 +534,14 @@ AWS_PROFILE=voxera bun run outputs
 
 ## Secrets in stack config
 
-- `cloudflareApiToken` (encrypted via KMS): scoped Zone:Read + DNS:Edit token for `vox-era.com`. Generate at https://dash.cloudflare.com/profile/api-tokens, then `pulumi config set --secret cloudflareApiToken <token>`.
+- `cloudflareApiToken` (encrypted by Pulumi Cloud): scoped Zone:Read + DNS:Edit token for `vox-era.com`. Generate at https://dash.cloudflare.com/profile/api-tokens, then `pulumi config set --secret cloudflareApiToken <token>`.
 
 ## Outputs published to GitHub Secrets
 
 The release workflow consumes these via `${{ secrets.NAME }}`:
 - `AWS_DEPLOY_ROLE_ARN` ← `pulumi stack output ciRoleArn`
 - `CLOUDFRONT_DISTRIBUTION_ID` ← `pulumi stack output distributionId`
+- `PULUMI_ACCESS_TOKEN` ← https://app.pulumi.com/account/tokens (Plan D Task 4 Step 1)
 
 Refresh after every `pulumi up` if outputs change:
 
@@ -560,7 +554,7 @@ gh secret set CLOUDFRONT_DISTRIBUTION_ID --body "$DIST_ID" --repo programow/vox-
 
 ## Bootstrap (one-time, before this package can run)
 
-The state bucket and KMS key are created manually with raw `aws --profile voxera` commands; see Plan D Task 4. Pulumi can't manage its own state bucket.
+Log in to Pulumi Cloud (`pulumi login`) and generate a CI access token; create a Cloudflare API token. Both steps are documented in Plan D Task 4.
 ```
 
 - [ ] **Step 10: Commit**
@@ -1171,6 +1165,7 @@ Releases are tag-triggered. Push a `v*` tag and the `Release` workflow runs:
 | `GPG_PASSPHRASE` | GPG key passphrase | The passphrase you set when generating |
 | `AWS_DEPLOY_ROLE_ARN` | OIDC role ARN | `aws iam get-role --role-name vox-era-ci` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | distribution id | CloudFront console |
+| `PULUMI_ACCESS_TOKEN` | Pulumi Cloud CI access token | https://app.pulumi.com/account/tokens (1-year expiration; rotate annually) |
 
 ## Cutting a release
 
@@ -1285,11 +1280,11 @@ git commit -m "docs(release): add Linux install instructions for apt, dnf, and A
 
 ## Infrastructure as Code (Pulumi)
 
-All AWS + Cloudflare resources are managed by `packages/infra/` (Pulumi, TypeScript). State lives in `s3://vox-era-pulumi-state` (self-hosted, no Pulumi Cloud account); secrets are encrypted via AWS KMS alias `alias/voxera-pulumi`. Provider profile: `voxera`.
+All AWS + Cloudflare resources are managed by `packages/infra/` (Pulumi, TypeScript). State and secrets are managed by **Pulumi Cloud** under the personal account `guilherme-vozniak-a-gmail-com` (stack: `guilherme-vozniak-a-gmail-com/vox-era-infra/prod`). The AWS provider used inside the stack still runs against the local profile `voxera` (locally) or via OIDC role assumption (in CI).
 
-Run `AWS_PROFILE=voxera bun --filter @vox-era/infra preview` to see pending changes; `AWS_PROFILE=voxera bun --filter @vox-era/infra up` to apply.
+Run `AWS_PROFILE=voxera bun --filter @vox-era/infra preview` to see pending changes; `AWS_PROFILE=voxera bun --filter @vox-era/infra up` to apply. The `pulumi` CLI must be logged in (`pulumi login`); CI uses `PULUMI_ACCESS_TOKEN`.
 
-See `packages/infra/README.md` for details. The state bucket + KMS key are bootstrapped manually (one-time) per Plan D Task 4.
+See `packages/infra/README.md` for details. Bootstrap steps (Pulumi Cloud login + Cloudflare token generation) are documented in Plan D Task 4.
 
 ## Workflows
 

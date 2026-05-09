@@ -690,7 +690,7 @@ AI dev workflow guide for Vox Era — a cross-platform speech-to-text desktop ap
 
 - **Display name:** Vox Era
 - **URL slug:** `vox-era`
-- **Identifier (no hyphens):** `voxera` (used for Cargo crate name and macOS bundle id `com.programow.voxera`)
+- **Identifier (no hyphens):** `voxera` (used for Cargo crate name and macOS bundle id `com.vhtechnology.voxera`)
 - **Domain:** `vox-era.com`
 - **GitHub repo:** `programow/vox-era`
 - **License:** Apache 2.0
