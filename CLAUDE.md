@@ -8,7 +8,7 @@ AI dev workflow guide for Vox Era — a cross-platform speech-to-text desktop ap
 
 - **Display name:** Vox Era
 - **URL slug:** `vox-era`
-- **Identifier (no hyphens):** `voxera` (used for Cargo crate name and macOS bundle id `com.programow.voxera`)
+- **Identifier (no hyphens):** `voxera` (used for Cargo crate name and macOS bundle id `com.vhtechnology.voxera`)
 - **Domain:** `vox-era.com`
 - **GitHub repo:** `programow/vox-era`
 - **License:** Apache 2.0
@@ -63,7 +63,7 @@ Vox Era references the [Anthropic superpowers skills](https://github.com/anthrop
 
 **Project-local (tooling reference):**
 - `tauri-2-app-development` — capabilities, plugins, multi-window, macOS Info.plist gotchas
-- `pulumi-self-hosted-iac` — S3 state backend + KMS secrets, AWS profile, Cloudflare provider
+- `pulumi-cloud-iac` — Pulumi Cloud state + secrets, AWS profile, Cloudflare provider
 - `tauri-release-and-distribution` — Apple notarization, minisign updater, GPG-signed apt/dnf repos
 - `ai-sdk-transcribe` — `experimental_transcribe`, provider factory pattern, MSW v2 mocking
 
