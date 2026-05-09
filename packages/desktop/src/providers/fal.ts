@@ -1,5 +1,18 @@
 import { createFal } from '@ai-sdk/fal';
-import type { ProviderConfig } from './types';
+import type { Model, ProviderConfig } from './types';
+
+const DEFAULT_MODELS: Model[] = [
+    {
+        id: 'whisper',
+        displayName: 'Whisper',
+        description: 'OpenAI Whisper hosted by Fal',
+    },
+    {
+        id: 'wizper',
+        displayName: 'Wizper',
+        description: 'Fal-tuned Whisper variant',
+    },
+];
 
 export const falConfig: ProviderConfig = {
     id: 'fal',
@@ -10,8 +23,9 @@ export const falConfig: ProviderConfig = {
     pricingDocsUrl: 'https://fal.ai/pricing',
     makeModel: (modelId, apiKey) => createFal({ apiKey }).transcription(modelId),
     listModels: null,
-    defaultModels: [{ id: 'whisper', displayName: 'Whisper' }],
+    defaultModels: DEFAULT_MODELS,
     pricing: {
         whisper: { perMinuteUSD: 0.005, lastUpdated: '2026-05-03' },
+        wizper: { perMinuteUSD: 0.0125, lastUpdated: '2026-05-03' },
     },
 };
