@@ -1,8 +1,11 @@
+import { MainWindow } from './windows/main/MainWindow';
+import { OverlayWindow } from './windows/overlay/OverlayWindow';
+
 export default function App() {
     const params = new URLSearchParams(window.location.search);
     const which = params.get('window') ?? 'main';
     if (which === 'overlay') {
-        return <div>Overlay placeholder — implemented in Section 12.</div>;
+        return <OverlayWindow state={{ kind: 'idle' }} />;
     }
-    return <div>Main window placeholder — implemented in Section 12.</div>;
+    return <MainWindow />;
 }

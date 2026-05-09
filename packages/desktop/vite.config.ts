@@ -1,3 +1,4 @@
+import { URL, fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -9,6 +10,11 @@ export default defineConfig({
         strictPort: true,
     },
     envPrefix: ['VITE_', 'TAURI_'],
+    resolve: {
+        alias: {
+            '@': fileURLToPath(new URL('./src', import.meta.url)),
+        },
+    },
     build: {
         target: 'esnext',
         minify: 'esbuild',
