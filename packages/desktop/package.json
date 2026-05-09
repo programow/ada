@@ -1,0 +1,12 @@
+{
+  "name": "@vox-era/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Vox Era desktop app (Tauri 2.x) — implementation in Plan B",
+  "scripts": {
+    "typecheck": "echo 'desktop typecheck — implemented in Plan B' && exit 0",
+    "test": "echo 'desktop test — implemented in Plan B' && exit 0",
+    "test:unit": "echo 'desktop test:unit — implemented in Plan B' && exit 0",
+    "test:integration": "echo 'desktop test:integration — implemented in Plan B' && exit 0"
+  }
+}

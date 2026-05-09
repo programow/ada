@@ -1,0 +1,12 @@
+{
+  "name": "@vox-era/infra",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Vox Era infrastructure as code (Pulumi + AWS + Cloudflare) — implementation in Plan D",
+  "scripts": {
+    "typecheck": "echo 'infra typecheck — implemented in Plan D' && exit 0",
+    "test": "echo 'infra test — no tests for IaC' && exit 0",
+    "test:unit": "echo 'infra test:unit — no tests for IaC' && exit 0",
+    "test:integration": "echo 'infra test:integration — no tests for IaC' && exit 0"
+  }
+}

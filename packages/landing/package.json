@@ -1,0 +1,12 @@
+{
+  "name": "@vox-era/landing",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Vox Era landing page (Next.js static) — implementation in Plan C",
+  "scripts": {
+    "typecheck": "echo 'landing typecheck — implemented in Plan C' && exit 0",
+    "test": "echo 'landing test — implemented in Plan C' && exit 0",
+    "test:unit": "echo 'landing test:unit — implemented in Plan C' && exit 0",
+    "test:integration": "echo 'landing test:integration — implemented in Plan C' && exit 0"
+  }
+}
