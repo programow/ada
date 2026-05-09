@@ -718,10 +718,19 @@ vox-era/
 
 ## Skills (when working on this repo)
 
+Vox Era references the [Anthropic superpowers skills](https://github.com/anthropics/superpowers) (already available in your environment) PLUS four project-local skills in `.claude/skills/` that document tooling specifics for this codebase. Project-local skills auto-activate when their description matches the task at hand.
+
+**Superpowers (workflow process):**
 - `superpowers:brainstorming` — when starting a new feature
 - `superpowers:writing-plans` — to break a design into tasks
 - `superpowers:subagent-driven-development` — to execute a plan task-by-task
 - `superpowers:test-driven-development` — the discipline subagents follow per task
+
+**Project-local (tooling reference):**
+- `tauri-2-app-development` — capabilities, plugins, multi-window, macOS Info.plist gotchas
+- `pulumi-self-hosted-iac` — S3 state backend + KMS secrets, AWS profile, Cloudflare provider
+- `tauri-release-and-distribution` — Apple notarization, minisign updater, GPG-signed apt/dnf repos
+- `ai-sdk-transcribe` — `experimental_transcribe`, provider factory pattern, MSW v2 mocking
 
 ## Documentation index
 
