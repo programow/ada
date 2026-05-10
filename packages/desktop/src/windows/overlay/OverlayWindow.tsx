@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type OverlayState = { kind: 'hidden' } | { kind: 'recording' } | { kind: 'transcribing' };
 
@@ -13,20 +14,29 @@ const PILL = cn(
     'px-3 py-1.5',
     'ring-1 ring-white/10',
     'select-none text-white',
+    'cursor-grab active:cursor-grabbing',
 );
+
+function startDrag(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    console.info('OverlayWindow: mousedown — calling startDragging()');
+    void getCurrentWindow()
+        .startDragging()
+        .catch((err) => console.warn('OverlayWindow: startDragging failed', err));
+}
 
 function RecordingDot() {
     return (
         <span
             aria-hidden="true"
-            className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
+            className="pointer-events-none inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
         />
     );
 }
 
 function Waveform() {
     return (
-        <span className="flex items-end gap-0.5" aria-hidden="true">
+        <span className="pointer-events-none flex items-end gap-0.5" aria-hidden="true">
             {[0, 1, 2, 3].map((i) => (
                 <span
                     key={i}
@@ -43,7 +53,7 @@ function Waveform() {
 
 function TranscribingDots() {
     return (
-        <span className="flex items-center gap-1" aria-hidden="true">
+        <span className="pointer-events-none flex items-center gap-1" aria-hidden="true">
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
@@ -60,18 +70,34 @@ export function OverlayWindow({ state }: OverlayWindowProps) {
 
     if (state.kind === 'recording') {
         return (
-            <div className={PILL} data-testid="overlay-pill" data-state="recording">
+            <div
+                className={PILL}
+                data-testid="overlay-pill"
+                data-state="recording"
+                data-tauri-drag-region
+                onMouseDown={startDrag}
+            >
                 <RecordingDot />
                 <Waveform />
-                <span className="text-[11px] font-medium tracking-wide">Recording</span>
+                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                    Recording
+                </span>
             </div>
         );
     }
 
     return (
-        <div className={PILL} data-testid="overlay-pill" data-state="transcribing">
+        <div
+            className={PILL}
+            data-testid="overlay-pill"
+            data-state="transcribing"
+            data-tauri-drag-region
+            onMouseDown={startDrag}
+        >
             <TranscribingDots />
-            <span className="text-[11px] font-medium tracking-wide">Transcribing</span>
+            <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                Transcribing
+            </span>
         </div>
     );
 }

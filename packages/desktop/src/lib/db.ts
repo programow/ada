@@ -4,12 +4,19 @@ import Database from '@tauri-apps/plugin-sql';
 const DB_URL = 'sqlite:vox-era.db';
 const ACTIVE_MODEL_CONFIG_KEY = 'active_model_config_id';
 const OVERLAY_ENABLED_KEY = 'overlay_enabled';
+const OVERLAY_X_KEY = 'overlay_x';
+const OVERLAY_Y_KEY = 'overlay_y';
 
 export interface ApiKeyRow {
     id: string;
     providerId: string;
     nickname: string;
     createdAt: string;
+}
+
+export interface OverlayPosition {
+    x: number;
+    y: number;
 }
 
 export interface ModelConfigWithApiKey {
@@ -196,6 +203,29 @@ export async function setOverlayEnabled(enabled: boolean): Promise<void> {
         'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
         [OVERLAY_ENABLED_KEY, enabled ? 'true' : 'false'],
     );
+}
+
+export async function getOverlayPosition(): Promise<OverlayPosition | null> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT key, value FROM app_state WHERE key IN (?, ?)', [
+        OVERLAY_X_KEY,
+        OVERLAY_Y_KEY,
+    ])) as { key: string; value: string }[];
+    const x = rows.find((r) => r.key === OVERLAY_X_KEY)?.value;
+    const y = rows.find((r) => r.key === OVERLAY_Y_KEY)?.value;
+    if (x === undefined || y === undefined) return null;
+    const xn = Number.parseInt(x, 10);
+    const yn = Number.parseInt(y, 10);
+    if (!Number.isFinite(xn) || !Number.isFinite(yn)) return null;
+    return { x: xn, y: yn };
+}
+
+export async function setOverlayPosition(pos: OverlayPosition): Promise<void> {
+    const conn = await db();
+    const upsert =
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value';
+    await conn.execute(upsert, [OVERLAY_X_KEY, String(Math.round(pos.x))]);
+    await conn.execute(upsert, [OVERLAY_Y_KEY, String(Math.round(pos.y))]);
 }
 
 export async function getModelConfigWithApiKey(id: string): Promise<ModelConfigWithApiKey | null> {

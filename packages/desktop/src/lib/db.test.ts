@@ -23,11 +23,13 @@ import {
     getActiveModelConfigId,
     getModelConfigWithApiKey,
     getOverlayEnabled,
+    getOverlayPosition,
     listApiKeys,
     listModelConfigDependencies,
     listModelConfigs,
     setActiveModelConfigId,
     setOverlayEnabled,
+    setOverlayPosition,
 } from './db';
 
 beforeEach(() => {
@@ -266,6 +268,58 @@ describe('db.overlayEnabled', () => {
         expect(fakeDb.execute).toHaveBeenCalledWith(
             expect.stringMatching(/INSERT INTO app_state.*ON CONFLICT/is),
             ['overlay_enabled', 'false'],
+        );
+    });
+});
+
+describe('db.overlayPosition', () => {
+    it('returns null when no rows exist', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        await expect(getOverlayPosition()).resolves.toBeNull();
+    });
+
+    it('returns null when only x exists', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ key: 'overlay_x', value: '100' }]);
+        await expect(getOverlayPosition()).resolves.toBeNull();
+    });
+
+    it('returns {x, y} when both rows exist', async () => {
+        fakeDb.select.mockResolvedValueOnce([
+            { key: 'overlay_x', value: '100' },
+            { key: 'overlay_y', value: '200' },
+        ]);
+        await expect(getOverlayPosition()).resolves.toEqual({ x: 100, y: 200 });
+    });
+
+    it('returns null when stored values are non-numeric', async () => {
+        fakeDb.select.mockResolvedValueOnce([
+            { key: 'overlay_x', value: 'oops' },
+            { key: 'overlay_y', value: 'nope' },
+        ]);
+        await expect(getOverlayPosition()).resolves.toBeNull();
+    });
+
+    it('upserts both x and y when setOverlayPosition is called', async () => {
+        await setOverlayPosition({ x: 100, y: 200 });
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state.*ON CONFLICT/is),
+            ['overlay_x', '100'],
+        );
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state.*ON CONFLICT/is),
+            ['overlay_y', '200'],
+        );
+    });
+
+    it('rounds float coordinates before persisting', async () => {
+        await setOverlayPosition({ x: 100.7, y: 200.3 });
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state/i),
+            ['overlay_x', '101'],
+        );
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state/i),
+            ['overlay_y', '200'],
         );
     });
 });

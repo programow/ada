@@ -23,4 +23,17 @@ describe('<OverlayWindow />', () => {
         expect(pill).toHaveTextContent(/transcribing/i);
         expect(screen.queryByRole('button')).toBeNull();
     });
+
+    it('marks the recording pill as a Tauri drag region with grab cursor', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-tauri-drag-region');
+        expect(pill.className).toMatch(/cursor-grab/);
+    });
+
+    it('marks the transcribing pill as a Tauri drag region', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-tauri-drag-region');
+    });
 });
