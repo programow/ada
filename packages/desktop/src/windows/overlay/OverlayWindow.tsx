@@ -1,7 +1,11 @@
 import { cn } from '@/lib/utils';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-export type OverlayState = { kind: 'hidden' } | { kind: 'recording' } | { kind: 'transcribing' };
+export type OverlayState =
+    | { kind: 'hidden' }
+    | { kind: 'recording' }
+    | { kind: 'transcribing' }
+    | { kind: 'positioning' };
 
 export interface OverlayWindowProps {
     state: OverlayState;
@@ -11,18 +15,39 @@ const PILL = cn(
     'fixed bottom-3 left-1/2 -translate-x-1/2',
     'flex items-center gap-2',
     'rounded-full bg-black/55 backdrop-blur-md',
-    'px-3 py-1.5',
+    'pl-1.5 pr-3 py-1.5',
     'ring-1 ring-white/10',
     'select-none text-white',
-    'cursor-grab active:cursor-grabbing',
 );
 
-function startDrag(e: React.MouseEvent<HTMLDivElement>) {
+const HANDLE = cn(
+    'flex items-center justify-center',
+    'cursor-grab active:cursor-grabbing',
+    'text-white/70 hover:text-white/95',
+    'leading-none',
+    'px-1',
+);
+
+function startDrag(e: React.MouseEvent<HTMLSpanElement>) {
     if (e.button !== 0) return;
-    console.info('OverlayWindow: mousedown — calling startDragging()');
     void getCurrentWindow()
         .startDragging()
         .catch((err) => console.warn('OverlayWindow: startDragging failed', err));
+}
+
+function DragHandle() {
+    return (
+        <span
+            className={HANDLE}
+            data-testid="overlay-drag-handle"
+            data-tauri-drag-region
+            onMouseDown={startDrag}
+            aria-label="Drag to move overlay"
+            title="Drag"
+        >
+            ⠿
+        </span>
+    );
 }
 
 function RecordingDot() {
@@ -70,13 +95,8 @@ export function OverlayWindow({ state }: OverlayWindowProps) {
 
     if (state.kind === 'recording') {
         return (
-            <div
-                className={PILL}
-                data-testid="overlay-pill"
-                data-state="recording"
-                data-tauri-drag-region
-                onMouseDown={startDrag}
-            >
+            <div className={PILL} data-testid="overlay-pill" data-state="recording">
+                <DragHandle />
                 <RecordingDot />
                 <Waveform />
                 <span className="pointer-events-none text-[11px] font-medium tracking-wide">
@@ -86,17 +106,23 @@ export function OverlayWindow({ state }: OverlayWindowProps) {
         );
     }
 
+    if (state.kind === 'transcribing') {
+        return (
+            <div className={PILL} data-testid="overlay-pill" data-state="transcribing">
+                <DragHandle />
+                <TranscribingDots />
+                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                    Transcribing
+                </span>
+            </div>
+        );
+    }
+
     return (
-        <div
-            className={PILL}
-            data-testid="overlay-pill"
-            data-state="transcribing"
-            data-tauri-drag-region
-            onMouseDown={startDrag}
-        >
-            <TranscribingDots />
+        <div className={PILL} data-testid="overlay-pill" data-state="positioning">
+            <DragHandle />
             <span className="pointer-events-none text-[11px] font-medium tracking-wide">
-                Transcribing
+                Drag to position
             </span>
         </div>
     );

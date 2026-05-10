@@ -19,7 +19,17 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 }));
 vi.mock('./db', () => ({ getOverlayEnabled: getOverlayEnabledMock }));
 
-import { RECORDING_STATE_EVENT, hideOverlayWindow, publishRecordingState } from './overlay-bridge';
+import {
+    OVERLAY_POSITION_SETUP_OFF_EVENT,
+    OVERLAY_POSITION_SETUP_ON_EVENT,
+    OVERLAY_RESET_POSITION_EVENT,
+    RECORDING_STATE_EVENT,
+    enterOverlayPositionSetup,
+    exitOverlayPositionSetup,
+    hideOverlayWindow,
+    publishRecordingState,
+    resetOverlayPosition,
+} from './overlay-bridge';
 
 beforeEach(() => {
     emitMock.mockClear();
@@ -126,5 +136,60 @@ describe('hideOverlayWindow', () => {
     it('does not throw if hide fails', async () => {
         fakeOverlay.hide.mockRejectedValueOnce(new Error('boom'));
         await expect(hideOverlayWindow()).resolves.not.toThrow();
+    });
+});
+
+describe('enterOverlayPositionSetup', () => {
+    it('emits setup-on and shows the overlay', async () => {
+        await enterOverlayPositionSetup();
+        expect(emitMock).toHaveBeenCalledWith(OVERLAY_POSITION_SETUP_ON_EVENT, null);
+        expect(fakeOverlay.show).toHaveBeenCalled();
+    });
+
+    it('does not throw if show fails', async () => {
+        fakeOverlay.show.mockRejectedValueOnce(new Error('boom'));
+        await expect(enterOverlayPositionSetup()).resolves.not.toThrow();
+    });
+});
+
+describe('exitOverlayPositionSetup', () => {
+    it('emits setup-off (default reason "manual") and hides by default', async () => {
+        await exitOverlayPositionSetup();
+        expect(emitMock).toHaveBeenCalledWith(OVERLAY_POSITION_SETUP_OFF_EVENT, {
+            reason: 'manual',
+        });
+        expect(fakeOverlay.hide).toHaveBeenCalled();
+    });
+
+    it('emits setup-off with the supplied reason', async () => {
+        await exitOverlayPositionSetup({ hide: true, reason: 'idle' });
+        expect(emitMock).toHaveBeenCalledWith(OVERLAY_POSITION_SETUP_OFF_EVENT, {
+            reason: 'idle',
+        });
+    });
+
+    it('emits setup-off but does not hide when hide:false', async () => {
+        await exitOverlayPositionSetup({ hide: false, reason: 'recording-wins' });
+        expect(emitMock).toHaveBeenCalledWith(OVERLAY_POSITION_SETUP_OFF_EVENT, {
+            reason: 'recording-wins',
+        });
+        expect(fakeOverlay.hide).not.toHaveBeenCalled();
+    });
+
+    it('does not throw if emit fails', async () => {
+        emitMock.mockRejectedValueOnce(new Error('boom'));
+        await expect(exitOverlayPositionSetup()).resolves.not.toThrow();
+    });
+});
+
+describe('resetOverlayPosition', () => {
+    it('emits the reset event', async () => {
+        await resetOverlayPosition();
+        expect(emitMock).toHaveBeenCalledWith(OVERLAY_RESET_POSITION_EVENT, null);
+    });
+
+    it('does not throw if emit fails', async () => {
+        emitMock.mockRejectedValueOnce(new Error('boom'));
+        await expect(resetOverlayPosition()).resolves.not.toThrow();
     });
 });

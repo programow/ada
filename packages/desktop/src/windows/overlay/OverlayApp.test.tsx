@@ -10,18 +10,19 @@ const {
     fireMoved,
     getOverlayPositionMock,
     setOverlayPositionMock,
+    exitOverlayPositionSetupMock,
 } = vi.hoisted(() => {
     type Handler = (event: { payload: unknown }) => void;
-    let handler: Handler | null = null;
+    const handlers = new Map<string, Handler>();
     let movedHandler: ((e: { payload: { x: number; y: number } }) => void) | null = null;
     return {
-        listenMock: vi.fn(async (_name: string, h: Handler) => {
-            handler = h;
+        listenMock: vi.fn(async (name: string, h: Handler) => {
+            handlers.set(name, h);
             return () => {
-                handler = null;
+                handlers.delete(name);
             };
         }),
-        fireEvent: (payload: unknown) => handler?.({ payload }),
+        fireEvent: (name: string, payload: unknown) => handlers.get(name)?.({ payload }),
         currentMonitorMock: vi.fn<
             () => Promise<{ size: { width: number; height: number } } | null>
         >(async () => ({ size: { width: 1920, height: 1080 } })),
@@ -39,6 +40,9 @@ const {
             async () => null,
         ),
         setOverlayPositionMock: vi.fn<(p: { x: number; y: number }) => Promise<void>>(
+            async () => undefined,
+        ),
+        exitOverlayPositionSetupMock: vi.fn<(opts?: { hide: boolean }) => Promise<void>>(
             async () => undefined,
         ),
     };
@@ -63,8 +67,20 @@ vi.mock('@/lib/db', () => ({
     getOverlayPosition: getOverlayPositionMock,
     setOverlayPosition: setOverlayPositionMock,
 }));
+vi.mock('@/lib/overlay-bridge', () => ({
+    RECORDING_STATE_EVENT: 'vox-era://recording-state',
+    OVERLAY_POSITION_SETUP_ON_EVENT: 'vox-era://overlay-position-setup-on',
+    OVERLAY_POSITION_SETUP_OFF_EVENT: 'vox-era://overlay-position-setup-off',
+    OVERLAY_RESET_POSITION_EVENT: 'vox-era://overlay-reset-position',
+    exitOverlayPositionSetup: exitOverlayPositionSetupMock,
+}));
 
 import { OverlayApp } from './OverlayApp';
+
+const RECORDING_EVENT = 'vox-era://recording-state';
+const SETUP_ON_EVENT = 'vox-era://overlay-position-setup-on';
+const SETUP_OFF_EVENT = 'vox-era://overlay-position-setup-off';
+const RESET_EVENT = 'vox-era://overlay-reset-position';
 
 beforeEach(() => {
     listenMock.mockClear();
@@ -73,6 +89,7 @@ beforeEach(() => {
     onMovedMock.mockClear();
     getOverlayPositionMock.mockReset().mockResolvedValue(null);
     setOverlayPositionMock.mockReset().mockResolvedValue(undefined);
+    exitOverlayPositionSetupMock.mockReset().mockResolvedValue(undefined);
     vi.useRealTimers();
 });
 
@@ -101,15 +118,16 @@ describe('<OverlayApp />', () => {
         const arg = setPositionMock.mock.calls[0]?.[0];
         expect(arg?.x).toBe(50);
         expect(arg?.y).toBe(60);
-        // currentMonitor not consulted when saved exists
         expect(currentMonitorMock).not.toHaveBeenCalled();
     });
 
     it('renders the recording pill on a recording event', async () => {
         render(<OverlayApp />);
-        await waitFor(() => expect(listenMock).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
         await act(async () => {
-            fireEvent({ kind: 'recording', sessionId: 'session-1' });
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
         });
         const pill = await screen.findByTestId('overlay-pill');
         expect(pill).toHaveTextContent(/recording/i);
@@ -117,9 +135,11 @@ describe('<OverlayApp />', () => {
 
     it('renders the transcribing pill on a transcribing event', async () => {
         render(<OverlayApp />);
-        await waitFor(() => expect(listenMock).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
         await act(async () => {
-            fireEvent({ kind: 'transcribing' });
+            fireEvent(RECORDING_EVENT, { kind: 'transcribing' });
         });
         const pill = await screen.findByTestId('overlay-pill');
         expect(pill).toHaveTextContent(/transcrib/i);
@@ -127,13 +147,15 @@ describe('<OverlayApp />', () => {
 
     it('hides on idle event', async () => {
         const { container } = render(<OverlayApp />);
-        await waitFor(() => expect(listenMock).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
         await act(async () => {
-            fireEvent({ kind: 'recording', sessionId: 'session-1' });
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
         });
         await screen.findByTestId('overlay-pill');
         await act(async () => {
-            fireEvent({ kind: 'idle' });
+            fireEvent(RECORDING_EVENT, { kind: 'idle' });
         });
         await waitFor(() => {
             expect(container.querySelector('[data-testid="overlay-pill"]')).toBeNull();
@@ -142,13 +164,15 @@ describe('<OverlayApp />', () => {
 
     it('hides on error event', async () => {
         const { container } = render(<OverlayApp />);
-        await waitFor(() => expect(listenMock).toHaveBeenCalled());
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
         await act(async () => {
-            fireEvent({ kind: 'recording', sessionId: 'session-1' });
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
         });
         await screen.findByTestId('overlay-pill');
         await act(async () => {
-            fireEvent({ kind: 'error', message: 'boom' });
+            fireEvent(RECORDING_EVENT, { kind: 'error', message: 'boom' });
         });
         await waitFor(() => {
             expect(container.querySelector('[data-testid="overlay-pill"]')).toBeNull();
@@ -207,5 +231,154 @@ describe('<OverlayApp />', () => {
             await vi.advanceTimersByTimeAsync(500);
         });
         expect(setOverlayPositionMock).not.toHaveBeenCalled();
+    });
+});
+
+describe('<OverlayApp /> setup mode', () => {
+    it('renders the positioning pill when setup-on event arrives', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        const pill = await screen.findByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-state', 'positioning');
+        expect(pill).toHaveTextContent(/drag to position/i);
+    });
+
+    it('hides the positioning pill when setup-off event arrives', async () => {
+        const { container } = render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        await screen.findByTestId('overlay-pill');
+        await act(async () => {
+            fireEvent(SETUP_OFF_EVENT, null);
+        });
+        await waitFor(() => {
+            expect(container.querySelector('[data-testid="overlay-pill"]')).toBeNull();
+        });
+    });
+
+    it('exits setup mode when a recording event arrives (recording wins)', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        await screen.findByTestId('overlay-pill');
+        await act(async () => {
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
+        });
+        await waitFor(() => {
+            expect(exitOverlayPositionSetupMock).toHaveBeenCalledWith({
+                hide: false,
+                reason: 'recording-wins',
+            });
+        });
+        // While in setup, recording event arrives → pill is now in 'recording' state
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-state', 'recording');
+    });
+
+    it('does not arm the idle-exit timer until the user actually moves the pill', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        vi.useFakeTimers();
+        // 4 seconds elapse without any drag — should NOT exit
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(4000);
+        });
+        expect(exitOverlayPositionSetupMock).not.toHaveBeenCalled();
+    });
+
+    it('exits setup mode 3s after the last drag', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await waitFor(() => expect(onMovedMock).toHaveBeenCalled());
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        vi.useFakeTimers();
+        act(() => {
+            fireMoved(100, 100);
+        });
+        // Less than 3s — should not have exited
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(2500);
+        });
+        expect(exitOverlayPositionSetupMock).not.toHaveBeenCalled();
+        // Past 3s — exit fires
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(600);
+        });
+        expect(exitOverlayPositionSetupMock).toHaveBeenCalledWith({
+            hide: true,
+            reason: 'idle',
+        });
+    });
+
+    it('resets the idle-exit timer on each subsequent move', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(SETUP_ON_EVENT, expect.any(Function)),
+        );
+        await waitFor(() => expect(onMovedMock).toHaveBeenCalled());
+        await act(async () => {
+            fireEvent(SETUP_ON_EVENT, null);
+        });
+        vi.useFakeTimers();
+        act(() => {
+            fireMoved(100, 100);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(2500);
+        });
+        // User drags again before 3s elapse — timer resets
+        act(() => {
+            fireMoved(200, 200);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(2500);
+        });
+        // Total 5s but idle for only 2.5s since last drag — no exit yet
+        expect(exitOverlayPositionSetupMock).not.toHaveBeenCalled();
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(600);
+        });
+        expect(exitOverlayPositionSetupMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('<OverlayApp /> reset handler', () => {
+    it('applies the default position when reset event arrives', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RESET_EVENT, expect.any(Function)),
+        );
+        const callsBefore = setPositionMock.mock.calls.length;
+        await act(async () => {
+            fireEvent(RESET_EVENT, null);
+        });
+        await waitFor(() => {
+            expect(setPositionMock.mock.calls.length).toBeGreaterThan(callsBefore);
+        });
+        const arg = setPositionMock.mock.calls.at(-1)?.[0];
+        expect(arg?.x).toBe(820);
+        expect(arg?.y).toBe(936);
     });
 });

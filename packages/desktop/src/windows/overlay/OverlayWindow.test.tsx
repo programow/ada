@@ -24,16 +24,34 @@ describe('<OverlayWindow />', () => {
         expect(screen.queryByRole('button')).toBeNull();
     });
 
-    it('marks the recording pill as a Tauri drag region with grab cursor', () => {
-        render(<OverlayWindow state={{ kind: 'recording' }} />);
+    it('renders the positioning pill with a drag prompt', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
         const pill = screen.getByTestId('overlay-pill');
-        expect(pill).toHaveAttribute('data-tauri-drag-region');
-        expect(pill.className).toMatch(/cursor-grab/);
+        expect(pill).toHaveAttribute('data-state', 'positioning');
+        expect(pill).toHaveTextContent(/drag to position/i);
+        expect(screen.queryByRole('button')).toBeNull();
     });
 
-    it('marks the transcribing pill as a Tauri drag region', () => {
+    it('confines the drag region to the handle, not the whole pill (recording)', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        const handle = screen.getByTestId('overlay-drag-handle');
+        expect(handle).toHaveAttribute('data-tauri-drag-region');
+        expect(handle.className).toMatch(/cursor-grab/);
+    });
+
+    it('confines the drag region to the handle for the transcribing pill', () => {
         render(<OverlayWindow state={{ kind: 'transcribing' }} />);
         const pill = screen.getByTestId('overlay-pill');
-        expect(pill).toHaveAttribute('data-tauri-drag-region');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        expect(screen.getByTestId('overlay-drag-handle')).toHaveAttribute('data-tauri-drag-region');
+    });
+
+    it('confines the drag region to the handle for the positioning pill', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        expect(screen.getByTestId('overlay-drag-handle')).toHaveAttribute('data-tauri-drag-region');
     });
 });

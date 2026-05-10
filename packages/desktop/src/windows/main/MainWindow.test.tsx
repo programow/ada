@@ -13,7 +13,11 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/overlay-bridge', () => ({
     publishRecordingState: vi.fn(async () => undefined),
     hideOverlayWindow: vi.fn(async () => undefined),
+    enterOverlayPositionSetup: vi.fn(async () => undefined),
+    exitOverlayPositionSetup: vi.fn(async () => undefined),
+    resetOverlayPosition: vi.fn(async () => undefined),
     RECORDING_STATE_EVENT: 'vox-era://recording-state',
+    OVERLAY_POSITION_SETUP_OFF_EVENT: 'vox-era://overlay-position-setup-off',
 }));
 
 vi.mock('@tauri-apps/api/event', () => ({

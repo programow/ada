@@ -4,6 +4,9 @@ import { getOverlayEnabled } from './db';
 import type { RecordingState } from './recording-controller';
 
 export const RECORDING_STATE_EVENT = 'vox-era://recording-state';
+export const OVERLAY_POSITION_SETUP_ON_EVENT = 'vox-era://overlay-position-setup-on';
+export const OVERLAY_POSITION_SETUP_OFF_EVENT = 'vox-era://overlay-position-setup-off';
+export const OVERLAY_RESET_POSITION_EVENT = 'vox-era://overlay-reset-position';
 
 const OVERLAY_LABEL = 'overlay';
 
@@ -62,5 +65,68 @@ export async function hideOverlayWindow(): Promise<void> {
         await overlay?.hide();
     } catch (e) {
         console.warn('overlay-bridge: hideOverlayWindow failed', e);
+    }
+}
+
+/**
+ * Start "set position" mode: tell the overlay to render its positioning
+ * pill and show the OS window so the user can drag it.
+ */
+export async function enterOverlayPositionSetup(): Promise<void> {
+    try {
+        await emit(OVERLAY_POSITION_SETUP_ON_EVENT, null);
+    } catch (e) {
+        console.warn('overlay-bridge: enterOverlayPositionSetup emit failed', e);
+    }
+    try {
+        const overlay = await WebviewWindow.getByLabel(OVERLAY_LABEL);
+        await overlay?.show();
+    } catch (e) {
+        console.warn('overlay-bridge: enterOverlayPositionSetup show failed', e);
+    }
+}
+
+/** Why setup mode is exiting — drives whether to surface a confirmation toast. */
+export type SetupExitReason = 'manual' | 'idle' | 'recording-wins';
+
+export interface SetupExitPayload {
+    reason: SetupExitReason;
+}
+
+/**
+ * End "set position" mode. Always emits the off event so listeners on both
+ * sides can sync their state. If `hide` is true, also hides the OS window;
+ * pass `false` when something else (a recording transition) is keeping the
+ * window visible.
+ */
+export async function exitOverlayPositionSetup(
+    options: { hide: boolean; reason?: SetupExitReason } = { hide: true },
+): Promise<void> {
+    const reason: SetupExitReason = options.reason ?? 'manual';
+    try {
+        const payload: SetupExitPayload = { reason };
+        await emit(OVERLAY_POSITION_SETUP_OFF_EVENT, payload);
+    } catch (e) {
+        console.warn('overlay-bridge: exitOverlayPositionSetup emit failed', e);
+    }
+    if (!options.hide) return;
+    try {
+        const overlay = await WebviewWindow.getByLabel(OVERLAY_LABEL);
+        await overlay?.hide();
+    } catch (e) {
+        console.warn('overlay-bridge: exitOverlayPositionSetup hide failed', e);
+    }
+}
+
+/**
+ * Trigger the overlay to recompute its default bottom-center position. The
+ * overlay listens for this event and calls `setPosition`; its existing
+ * onMoved-debounce save will then write the default coords to db.
+ */
+export async function resetOverlayPosition(): Promise<void> {
+    try {
+        await emit(OVERLAY_RESET_POSITION_EVENT, null);
+    } catch (e) {
+        console.warn('overlay-bridge: resetOverlayPosition emit failed', e);
     }
 }
