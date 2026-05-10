@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react';
 export interface HotkeyInputProps {
     value: string;
     onChange: (combo: string) => void;
+    /** Fires when the user clicks Capture; receivers can use this to
+     * unregister the OS global shortcut so it doesn't intercept the
+     * keydown the user is trying to capture. */
+    onCaptureStart?: () => void;
+    /** Fires when capture mode ends without a value (Esc / Cancel).
+     * Receivers should re-register the previous shortcut. Capture-completion
+     * with a new value goes through `onChange` and does NOT fire this. */
+    onCaptureCancel?: () => void;
 }
 
 function formatFromEvent(e: KeyboardEvent): string | null {
@@ -39,7 +47,12 @@ function keyLabel(e: KeyboardEvent): string {
     return e.key.toUpperCase();
 }
 
-export function HotkeyInput({ value, onChange }: HotkeyInputProps) {
+export function HotkeyInput({
+    value,
+    onChange,
+    onCaptureStart,
+    onCaptureCancel,
+}: HotkeyInputProps) {
     const [capturing, setCapturing] = useState(false);
 
     useEffect(() => {
@@ -49,6 +62,7 @@ export function HotkeyInput({ value, onChange }: HotkeyInputProps) {
             e.stopPropagation();
             if (e.key === 'Escape') {
                 setCapturing(false);
+                onCaptureCancel?.();
                 return;
             }
             const combo = formatFromEvent(e);
@@ -58,7 +72,17 @@ export function HotkeyInput({ value, onChange }: HotkeyInputProps) {
         }
         window.addEventListener('keydown', handle, true);
         return () => window.removeEventListener('keydown', handle, true);
-    }, [capturing, onChange]);
+    }, [capturing, onChange, onCaptureCancel]);
+
+    function toggle() {
+        if (capturing) {
+            setCapturing(false);
+            onCaptureCancel?.();
+        } else {
+            setCapturing(true);
+            onCaptureStart?.();
+        }
+    }
 
     return (
         <div className="flex items-center gap-2">
@@ -68,9 +92,7 @@ export function HotkeyInput({ value, onChange }: HotkeyInputProps) {
             >
                 {capturing ? 'Press a key combo…' : value}
             </span>
-            <Button onClick={() => setCapturing((v) => !v)}>
-                {capturing ? 'Cancel' : 'Capture…'}
-            </Button>
+            <Button onClick={toggle}>{capturing ? 'Cancel' : 'Capture…'}</Button>
         </div>
     );
 }

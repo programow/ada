@@ -59,6 +59,26 @@ export function SettingsRecording() {
         }
     }
 
+    async function handleCaptureStart() {
+        // Free the OS-level shortcut so the webview can see the keydown the
+        // user is about to press. `handleHotkeyChange` will re-register it
+        // when the new combo lands.
+        try {
+            await vox.unregisterHotkey();
+        } catch (e) {
+            console.error('unregister_hotkey failed', e);
+        }
+    }
+
+    async function handleCaptureCancel() {
+        // User aborted capture; restore whatever was registered before.
+        try {
+            await vox.registerHotkey(hotkey);
+        } catch (e) {
+            console.error('restore registerHotkey failed', e);
+        }
+    }
+
     async function handleTestRecording() {
         setTestStatus('recording');
         setTestError(null);
@@ -88,7 +108,12 @@ export function SettingsRecording() {
                 <div className="flex flex-col gap-1">
                     <Label htmlFor={hotkeyId}>Hotkey</Label>
                     <div id={hotkeyId}>
-                        <HotkeyInput value={hotkey} onChange={handleHotkeyChange} />
+                        <HotkeyInput
+                            value={hotkey}
+                            onChange={handleHotkeyChange}
+                            onCaptureStart={() => void handleCaptureStart()}
+                            onCaptureCancel={() => void handleCaptureCancel()}
+                        />
                     </div>
                 </div>
                 <div className="flex flex-col gap-1">
