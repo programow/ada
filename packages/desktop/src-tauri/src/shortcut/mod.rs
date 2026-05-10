@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod mock;
+pub mod parse;
 pub mod standard;
 
 #[cfg(target_os = "macos")]

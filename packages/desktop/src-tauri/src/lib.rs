@@ -24,7 +24,7 @@ use tauri_plugin_global_shortcut::{
 
 fn default_record_shortcut() -> Shortcut {
     let modifiers = if cfg!(target_os = "macos") {
-        Modifiers::META | Modifiers::SHIFT
+        Modifiers::SUPER | Modifiers::SHIFT
     } else {
         Modifiers::CONTROL | Modifiers::SHIFT
     };
