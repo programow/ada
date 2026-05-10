@@ -50,7 +50,7 @@ describe('SettingsRecording', () => {
             expect(screen.getByLabelText(/microphone/i)).toBeInTheDocument();
         });
         const select = screen.getByLabelText(/microphone/i) as HTMLSelectElement;
-        expect(select.options[0].textContent).toMatch(/system default/i);
+        expect(select.options[0]?.textContent).toMatch(/system default/i);
         expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
             'System default',
             'USB Mic',
