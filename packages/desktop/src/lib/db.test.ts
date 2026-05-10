@@ -18,6 +18,7 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
 import {
     addApiKey,
     addModelConfig,
+    clearAllTranscriptions,
     deleteApiKey,
     deleteModelConfig,
     getActiveModelConfigId,
@@ -26,14 +27,17 @@ import {
     getOverlayEnabled,
     getOverlayPosition,
     getSelectedMicDeviceId,
+    hardDeleteTranscription,
     listApiKeys,
     listModelConfigDependencies,
     listModelConfigs,
+    restoreTranscription,
     setActiveModelConfigId,
     setHotkeyCombo,
     setOverlayEnabled,
     setOverlayPosition,
     setSelectedMicDeviceId,
+    softDeleteTranscription,
 } from './db';
 
 beforeEach(() => {
@@ -422,5 +426,48 @@ describe('db.hotkeyCombo', () => {
         await setHotkeyCombo('Cmd+Alt+R');
         const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
         expect(calls.some((s) => /INSERT INTO app_state/i.test(s))).toBe(true);
+    });
+});
+
+function firstExecuteCall(): [string, [number, number]] {
+    const call = fakeDb.execute.mock.calls[0];
+    if (!call) throw new Error('expected fakeDb.execute to have been called');
+    return [call[0], (call[1] ?? []) as [number, number]];
+}
+
+describe('db.softDeleteTranscription', () => {
+    it('issues an UPDATE setting deleted_at to the current time', async () => {
+        await softDeleteTranscription(42);
+        const [sql, params] = firstExecuteCall();
+        expect(sql).toMatch(/UPDATE transcriptions SET deleted_at = \? WHERE id = \?/i);
+        expect(typeof params[0]).toBe('number');
+        expect(params[1]).toBe(42);
+    });
+});
+
+describe('db.restoreTranscription', () => {
+    it('clears deleted_at', async () => {
+        await restoreTranscription(42);
+        const [sql, params] = firstExecuteCall();
+        expect(sql).toMatch(/UPDATE transcriptions SET deleted_at = NULL WHERE id = \?/i);
+        expect(params).toEqual([42]);
+    });
+});
+
+describe('db.hardDeleteTranscription', () => {
+    it('issues a DELETE', async () => {
+        await hardDeleteTranscription(42);
+        const [sql] = firstExecuteCall();
+        expect(sql).toMatch(/DELETE FROM transcriptions WHERE id = \?/i);
+    });
+});
+
+describe('db.clearAllTranscriptions', () => {
+    it('hard-deletes everything and returns count', async () => {
+        fakeDb.execute.mockResolvedValueOnce({ rowsAffected: 7, lastInsertId: 0 });
+        const result = await clearAllTranscriptions();
+        const [sql] = firstExecuteCall();
+        expect(result).toEqual({ deleted: 7 });
+        expect(sql).toMatch(/DELETE FROM transcriptions/i);
     });
 });

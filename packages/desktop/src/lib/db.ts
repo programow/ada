@@ -354,3 +354,26 @@ export async function listTranscriptions(
         modelId: r.model_id,
     }));
 }
+
+export async function softDeleteTranscription(id: number): Promise<void> {
+    const conn = await db();
+    await conn.execute('UPDATE transcriptions SET deleted_at = ? WHERE id = ?', [Date.now(), id]);
+}
+
+export async function restoreTranscription(id: number): Promise<void> {
+    const conn = await db();
+    await conn.execute('UPDATE transcriptions SET deleted_at = NULL WHERE id = ?', [id]);
+}
+
+export async function hardDeleteTranscription(id: number): Promise<void> {
+    const conn = await db();
+    await conn.execute('DELETE FROM transcriptions WHERE id = ?', [id]);
+}
+
+export async function clearAllTranscriptions(): Promise<{ deleted: number }> {
+    const conn = await db();
+    const result = (await conn.execute('DELETE FROM transcriptions', [])) as {
+        rowsAffected: number;
+    };
+    return { deleted: result.rowsAffected };
+}
