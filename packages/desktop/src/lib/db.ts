@@ -8,6 +8,9 @@ const OVERLAY_X_KEY = 'overlay_x';
 const OVERLAY_Y_KEY = 'overlay_y';
 const SELECTED_MIC_DEVICE_KEY = 'selected_mic_device_id';
 const HOTKEY_COMBO_KEY = 'hotkey_combo';
+const RETENTION_DAYS_KEY = 'history_retention_days';
+const HISTORY_LAST_SWEEP_KEY = 'history_last_sweep';
+const SOFT_DELETE_GRACE_DAYS = 30;
 
 export interface ApiKeyRow {
     id: string;
@@ -376,4 +379,62 @@ export async function clearAllTranscriptions(): Promise<{ deleted: number }> {
         rowsAffected: number;
     };
     return { deleted: result.rowsAffected };
+}
+
+export async function getRetentionDays(): Promise<number> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        RETENTION_DAYS_KEY,
+    ])) as { value: string }[];
+    if (!rows[0]) return 365;
+    const n = Number.parseInt(rows[0].value, 10);
+    return Number.isFinite(n) ? n : 365;
+}
+
+export async function setRetentionDays(days: number): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [RETENTION_DAYS_KEY, String(days)],
+    );
+}
+
+export async function getHistoryLastSweep(): Promise<number | null> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        HISTORY_LAST_SWEEP_KEY,
+    ])) as { value: string }[];
+    if (!rows[0]) return null;
+    const n = Number.parseInt(rows[0].value, 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+export async function setHistoryLastSweep(ms: number): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [HISTORY_LAST_SWEEP_KEY, String(ms)],
+    );
+}
+
+export async function purgeOlderThan(
+    retentionDays: number,
+): Promise<{ softDeleted: number; hardDeleted: number }> {
+    const conn = await db();
+    const now = Date.now();
+    let softDeleted = 0;
+    if (retentionDays > 0) {
+        const cutoff = now - retentionDays * 24 * 60 * 60 * 1000;
+        const r = (await conn.execute(
+            'UPDATE transcriptions SET deleted_at = ? WHERE created_at < ? AND deleted_at IS NULL',
+            [now, cutoff],
+        )) as { rowsAffected: number };
+        softDeleted = r.rowsAffected;
+    }
+    const graceCutoff = now - SOFT_DELETE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+    const r = (await conn.execute(
+        'DELETE FROM transcriptions WHERE deleted_at IS NOT NULL AND deleted_at < ?',
+        [graceCutoff],
+    )) as { rowsAffected: number };
+    return { softDeleted, hardDeleted: r.rowsAffected };
 }

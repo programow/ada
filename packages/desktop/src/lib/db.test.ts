@@ -22,20 +22,25 @@ import {
     deleteApiKey,
     deleteModelConfig,
     getActiveModelConfigId,
+    getHistoryLastSweep,
     getHotkeyCombo,
     getModelConfigWithApiKey,
     getOverlayEnabled,
     getOverlayPosition,
+    getRetentionDays,
     getSelectedMicDeviceId,
     hardDeleteTranscription,
     listApiKeys,
     listModelConfigDependencies,
     listModelConfigs,
+    purgeOlderThan,
     restoreTranscription,
     setActiveModelConfigId,
+    setHistoryLastSweep,
     setHotkeyCombo,
     setOverlayEnabled,
     setOverlayPosition,
+    setRetentionDays,
     setSelectedMicDeviceId,
     softDeleteTranscription,
 } from './db';
@@ -469,5 +474,61 @@ describe('db.clearAllTranscriptions', () => {
         const [sql] = firstExecuteCall();
         expect(result).toEqual({ deleted: 7 });
         expect(sql).toMatch(/DELETE FROM transcriptions/i);
+    });
+});
+
+describe('db.retentionDays', () => {
+    it('returns 365 default when not set', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        await expect(getRetentionDays()).resolves.toBe(365);
+    });
+    it('returns persisted value', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: '90' }]);
+        await expect(getRetentionDays()).resolves.toBe(90);
+    });
+    it('persists via upsert', async () => {
+        await setRetentionDays(30);
+        const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
+        expect(calls.some((s) => /INSERT INTO app_state/i.test(s))).toBe(true);
+    });
+});
+
+describe('db.historyLastSweep', () => {
+    it('returns null when not set', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        await expect(getHistoryLastSweep()).resolves.toBeNull();
+    });
+    it('returns persisted value', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: '1700000000000' }]);
+        await expect(getHistoryLastSweep()).resolves.toBe(1700000000000);
+    });
+    it('persists via upsert', async () => {
+        await setHistoryLastSweep(1700000000000);
+        const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
+        expect(calls.some((s) => /INSERT INTO app_state/i.test(s))).toBe(true);
+    });
+});
+
+describe('db.purgeOlderThan', () => {
+    it('soft-deletes old non-deleted rows and hard-deletes long-soft-deleted rows', async () => {
+        fakeDb.execute
+            .mockResolvedValueOnce({ rowsAffected: 3, lastInsertId: 0 })
+            .mockResolvedValueOnce({ rowsAffected: 2, lastInsertId: 0 });
+        const result = await purgeOlderThan(30);
+        expect(result).toEqual({ softDeleted: 3, hardDeleted: 2 });
+        const calls = fakeDb.execute.mock.calls;
+        expect(calls[0]?.[0]).toMatch(
+            /UPDATE transcriptions SET deleted_at = \? WHERE created_at < \? AND deleted_at IS NULL/i,
+        );
+        expect(calls[1]?.[0]).toMatch(
+            /DELETE FROM transcriptions WHERE deleted_at IS NOT NULL AND deleted_at < \?/i,
+        );
+    });
+    it('skips the soft-delete step when retention is forever (-1)', async () => {
+        fakeDb.execute.mockResolvedValueOnce({ rowsAffected: 1, lastInsertId: 0 });
+        const result = await purgeOlderThan(-1);
+        expect(result.softDeleted).toBe(0);
+        expect(fakeDb.execute.mock.calls).toHaveLength(1);
+        expect(fakeDb.execute.mock.calls[0]?.[0]).toMatch(/DELETE FROM transcriptions/i);
     });
 });
