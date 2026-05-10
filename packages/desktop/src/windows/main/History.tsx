@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { TranscriptionRow } from '@/lib/db';
+import { downloadBlob, formatBulkAsMd, formatRowAsMd, formatRowAsTxt } from '@/lib/export';
 import { useId, useMemo, useState } from 'react';
 
 export interface HistoryEntry {
@@ -10,14 +12,39 @@ export interface HistoryEntry {
     provider: string;
     model: string;
     createdAt: string;
+    durationMs: number;
+    wordCount: number;
 }
 
 export interface HistoryProps {
     entries: readonly HistoryEntry[];
     pageSize?: number;
+    onDelete?: (id: string) => void;
+    onExportFiltered?: (rows: readonly HistoryEntry[]) => void;
 }
 
-export function History({ entries, pageSize = 25 }: HistoryProps) {
+function toTranscriptionRow(e: HistoryEntry): TranscriptionRow {
+    return {
+        id: Number(e.id),
+        createdAt: Date.parse(e.createdAt),
+        text: e.text,
+        durationMs: e.durationMs,
+        wordCount: e.wordCount,
+        providerId: e.provider,
+        modelId: e.model,
+    };
+}
+
+function exportRow(e: HistoryEntry, format: 'txt' | 'md') {
+    const row = toTranscriptionRow(e);
+    if (format === 'txt') {
+        downloadBlob(`vox-era-${row.id}.txt`, formatRowAsTxt(row), 'text/plain');
+    } else {
+        downloadBlob(`vox-era-${row.id}.md`, formatRowAsMd(row), 'text/markdown');
+    }
+}
+
+export function History({ entries, pageSize = 25, onDelete, onExportFiltered }: HistoryProps) {
     const [search, setSearch] = useState('');
     const [providerFilter, setProviderFilter] = useState('all');
     const [page, setPage] = useState(0);
@@ -77,6 +104,19 @@ export function History({ entries, pageSize = 25 }: HistoryProps) {
                         ))}
                     </select>
                 </div>
+                <div className="flex flex-col gap-1">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                            const md = formatBulkAsMd(filtered.map(toTranscriptionRow), 'filtered');
+                            downloadBlob('vox-era-history.md', md, 'text/markdown');
+                            onExportFiltered?.(filtered);
+                        }}
+                    >
+                        Export filtered
+                    </Button>
+                </div>
             </div>
 
             {filtered.length === 0 ? (
@@ -90,11 +130,43 @@ export function History({ entries, pageSize = 25 }: HistoryProps) {
                     {visible.map((entry) => (
                         <li key={entry.id} data-testid="history-row">
                             <Card>
-                                <CardContent className="flex flex-col gap-1 text-sm font-medium normal-case">
+                                <CardContent className="flex flex-col gap-2 text-sm font-medium normal-case">
                                     <p className="text-base">{entry.text}</p>
                                     <p className="text-xs uppercase tracking-wider opacity-70">
                                         {entry.provider} · {entry.model} · {entry.createdAt}
                                     </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                void navigator.clipboard.writeText(entry.text)
+                                            }
+                                        >
+                                            Copy
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => exportRow(entry, 'txt')}
+                                        >
+                                            Export .txt
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => exportRow(entry, 'md')}
+                                        >
+                                            Export .md
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => onDelete?.(entry.id)}
+                                        >
+                                            Delete
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </li>

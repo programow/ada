@@ -34,6 +34,8 @@ export function MainWindow() {
                         provider: r.providerId,
                         model: r.modelId,
                         createdAt: formatCreatedAt(r.createdAt),
+                        durationMs: r.durationMs,
+                        wordCount: r.wordCount,
                     })),
                 );
             } catch (e) {
