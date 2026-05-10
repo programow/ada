@@ -19,7 +19,7 @@ vi.mock('@tauri-apps/api/event', () => ({
     listen: listenMock,
 }));
 
-import type { RecordingDeps } from '@/lib/recording-controller';
+import type { RecordingDeps, RecordingState } from '@/lib/recording-controller';
 import { SHORTCUT_EVENT, useHotkeyRecording } from './useHotkeyRecording';
 
 function makeDeps(): RecordingDeps {
@@ -35,20 +35,26 @@ function makeDeps(): RecordingDeps {
     };
 }
 
+function makePublish() {
+    return vi.fn<(state: RecordingState) => Promise<void>>(async () => undefined);
+}
+
 beforeEach(() => {
     listenMock.mockClear();
 });
 
 describe('useHotkeyRecording', () => {
     it('starts in idle and subscribes to the shortcut event', () => {
-        const { result } = renderHook(() => useHotkeyRecording({ deps: makeDeps() }));
+        const { result } = renderHook(() =>
+            useHotkeyRecording({ deps: makeDeps(), publish: makePublish() }),
+        );
         expect(result.current.state).toEqual({ kind: 'idle' });
         expect(listenMock).toHaveBeenCalledWith(SHORTCUT_EVENT, expect.any(Function));
     });
 
     it('toggles idle → recording on first event', async () => {
         const deps = makeDeps();
-        const { result } = renderHook(() => useHotkeyRecording({ deps }));
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
         await act(async () => {
             fireEvent();
         });
@@ -60,7 +66,7 @@ describe('useHotkeyRecording', () => {
 
     it('cycles recording → transcribing → idle on second event', async () => {
         const deps = makeDeps();
-        const { result } = renderHook(() => useHotkeyRecording({ deps }));
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
         await act(async () => {
             fireEvent();
         });
@@ -76,11 +82,31 @@ describe('useHotkeyRecording', () => {
     it('surfaces errors as error state', async () => {
         const deps = makeDeps();
         vi.mocked(deps.vox.checkMicrophonePermission).mockResolvedValueOnce('Denied');
-        const { result } = renderHook(() => useHotkeyRecording({ deps }));
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
         await act(async () => {
             fireEvent();
         });
         await waitFor(() => expect(result.current.state.kind).toBe('error'));
+    });
+
+    it('publishes every state transition to the bridge', async () => {
+        const deps = makeDeps();
+        const publish = makePublish();
+        renderHook(() => useHotkeyRecording({ deps, publish }));
+        await act(async () => {
+            fireEvent();
+        });
+        await waitFor(() => {
+            expect(publish.mock.calls.map((c) => c[0].kind)).toContain('recording');
+        });
+        await act(async () => {
+            fireEvent();
+        });
+        await waitFor(() => {
+            const kinds = publish.mock.calls.map((c) => c[0].kind);
+            expect(kinds).toContain('transcribing');
+            expect(kinds).toContain('idle');
+        });
     });
 
     it('ignores events fired during transcribing (no double-stop)', async () => {
@@ -93,7 +119,7 @@ describe('useHotkeyRecording', () => {
                     resolveTranscribe = res;
                 }),
         );
-        const { result } = renderHook(() => useHotkeyRecording({ deps }));
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
         await act(async () => {
             fireEvent();
         });

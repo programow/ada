@@ -1,86 +1,77 @@
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export type OverlayState =
-    | { kind: 'hidden' }
-    | { kind: 'idle' }
-    | { kind: 'recording' }
-    | { kind: 'transcribing' }
-    | { kind: 'resultPreview'; text: string };
+export type OverlayState = { kind: 'hidden' } | { kind: 'recording' } | { kind: 'transcribing' };
 
 export interface OverlayWindowProps {
     state: OverlayState;
-    onRecord?: () => void;
-    onStop?: () => void;
-    onPaste?: (text: string) => void;
 }
 
-function Waveform({ active }: { active: boolean }) {
+const PILL = cn(
+    'fixed bottom-3 left-1/2 -translate-x-1/2',
+    'flex items-center gap-2',
+    'rounded-full bg-black/55 backdrop-blur-md',
+    'px-3 py-1.5',
+    'ring-1 ring-white/10',
+    'select-none text-white',
+);
+
+function RecordingDot() {
     return (
-        <div className="flex items-end gap-0.5" aria-hidden="true">
-            {[0, 1, 2, 3, 4].map((i) => (
-                <span
-                    key={i}
-                    className={cn(
-                        'w-1 bg-main-foreground transition-all',
-                        active ? 'animate-pulse' : '',
-                    )}
-                    style={{ height: `${6 + ((i * 7) % 12)}px` }}
-                />
-            ))}
-        </div>
+        <span
+            aria-hidden="true"
+            className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
+        />
     );
 }
 
-export function OverlayWindow({ state, onRecord, onStop, onPaste }: OverlayWindowProps) {
+function Waveform() {
+    return (
+        <span className="flex items-end gap-0.5" aria-hidden="true">
+            {[0, 1, 2, 3].map((i) => (
+                <span
+                    key={i}
+                    className="block w-0.5 rounded-sm bg-white/85 animate-pulse"
+                    style={{
+                        height: `${5 + ((i * 5) % 8)}px`,
+                        animationDelay: `${i * 110}ms`,
+                    }}
+                />
+            ))}
+        </span>
+    );
+}
+
+function TranscribingDots() {
+    return (
+        <span className="flex items-center gap-1" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+                <span
+                    key={i}
+                    className="block h-1.5 w-1.5 rounded-full bg-white/85 animate-bounce"
+                    style={{ animationDelay: `${i * 150}ms` }}
+                />
+            ))}
+        </span>
+    );
+}
+
+export function OverlayWindow({ state }: OverlayWindowProps) {
     if (state.kind === 'hidden') return null;
-
-    const baseClasses =
-        'fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 border-3 border-border px-3 py-2 shadow-neo-lg select-none';
-
-    if (state.kind === 'idle') {
-        return (
-            <div className={cn(baseClasses, 'bg-bg text-fg')} data-testid="overlay-pill">
-                <span className="text-xs font-bold uppercase tracking-widest">Idle</span>
-                <Button size="sm" onClick={() => onRecord?.()}>
-                    Record
-                </Button>
-            </div>
-        );
-    }
 
     if (state.kind === 'recording') {
         return (
-            <div className={cn(baseClasses, 'bg-red-400 text-fg')} data-testid="overlay-pill">
-                <Waveform active />
-                <span className="text-xs font-bold uppercase tracking-widest">Recording</span>
-                <Button size="sm" variant="outline" onClick={() => onStop?.()}>
-                    Stop
-                </Button>
-            </div>
-        );
-    }
-
-    if (state.kind === 'transcribing') {
-        return (
-            <div
-                className={cn(baseClasses, 'bg-main text-main-foreground')}
-                data-testid="overlay-pill"
-            >
-                <Waveform active />
-                <span className="text-xs font-bold uppercase tracking-widest">Transcribing</span>
+            <div className={PILL} data-testid="overlay-pill" data-state="recording">
+                <RecordingDot />
+                <Waveform />
+                <span className="text-[11px] font-medium tracking-wide">Recording</span>
             </div>
         );
     }
 
     return (
-        <div className={cn(baseClasses, 'bg-bg text-fg')} data-testid="overlay-pill">
-            <span className="max-w-[200px] truncate text-xs font-bold normal-case">
-                {state.text}
-            </span>
-            <Button size="sm" onClick={() => onPaste?.(state.text)}>
-                Paste
-            </Button>
+        <div className={PILL} data-testid="overlay-pill" data-state="transcribing">
+            <TranscribingDots />
+            <span className="text-[11px] font-medium tracking-wide">Transcribing</span>
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { vox } from '@/lib/invoke';
+import { publishRecordingState } from '@/lib/overlay-bridge';
 import { type RecordingDeps, type RecordingState, toggle } from '@/lib/recording-controller';
 import { transcribe } from '@/lib/transcribe';
 import { listen } from '@tauri-apps/api/event';
@@ -8,9 +9,13 @@ export const SHORTCUT_EVENT = 'vox-era://shortcut-toggle';
 
 const defaultDeps: RecordingDeps = { vox, transcribe };
 
+export type PublishFn = (state: RecordingState) => Promise<void>;
+
 export interface UseHotkeyRecordingOptions {
     /** Override deps in tests. */
     deps?: RecordingDeps;
+    /** Override the bridge that broadcasts state to the overlay window. */
+    publish?: PublishFn;
 }
 
 export function useHotkeyRecording(options: UseHotkeyRecordingOptions = {}): {
@@ -24,11 +29,17 @@ export function useHotkeyRecording(options: UseHotkeyRecordingOptions = {}): {
     const depsRef = useRef(deps);
     depsRef.current = deps;
 
+    const publish = options.publish ?? publishRecordingState;
+    const publishRef = useRef(publish);
+    publishRef.current = publish;
+
     useEffect(() => {
         let cancelled = false;
         const unlistenPromise = listen(SHORTCUT_EVENT, () => {
             void toggle(stateRef.current, depsRef.current, (next) => {
-                if (!cancelled) setState(next);
+                if (cancelled) return;
+                setState(next);
+                void publishRef.current(next);
             });
         });
         return () => {

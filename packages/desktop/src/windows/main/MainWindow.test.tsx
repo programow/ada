@@ -10,6 +10,11 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@tauri-apps/api/event', () => ({
     listen: vi.fn(async () => () => undefined),
+    emit: vi.fn(async () => undefined),
+}));
+
+vi.mock('@tauri-apps/api/webviewWindow', () => ({
+    WebviewWindow: { getByLabel: vi.fn(async () => null) },
 }));
 
 import { MainWindow } from './MainWindow';
