@@ -13,6 +13,10 @@ vi.mock('@/lib/db', () => ({
     setSelectedMicDeviceId: vi.fn(async () => undefined),
     getHotkeyCombo: vi.fn(async () => 'Cmd+Shift+Space'),
     setHotkeyCombo: vi.fn(async () => undefined),
+    getRetentionDays: vi.fn(async () => 365),
+    setRetentionDays: vi.fn(async () => undefined),
+    purgeOlderThan: vi.fn(async () => ({ softDeleted: 0, hardDeleted: 0 })),
+    clearAllTranscriptions: vi.fn(async () => ({ deleted: 0 })),
 }));
 
 vi.mock('@/lib/invoke', () => ({
