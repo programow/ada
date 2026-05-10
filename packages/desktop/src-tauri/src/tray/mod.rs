@@ -79,11 +79,25 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&open_main, &switch_provider, &separator, &quit])?;
 
+    let icon = app
+        .default_window_icon()
+        .ok_or_else(|| {
+            tauri::Error::AssetNotFound(
+                "default window icon (icons/icon.png) not found; cannot build tray icon".into(),
+            )
+        })?
+        .clone();
+
     let _tray = TrayIconBuilder::with_id("main-tray")
+        .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match dispatch_event(event.id.as_ref()) {
             Some(TrayEvent::OpenMain) => {
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                }
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
