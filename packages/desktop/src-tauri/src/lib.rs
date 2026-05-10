@@ -10,26 +10,14 @@ pub mod settings;
 pub mod shortcut;
 pub mod tray;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use audio::microphone::MicrophoneSource;
 use clipboard::TauriClipboard;
 use commands::AppState;
 use paste::EnigoPaster;
 use secrets::keyring_vault::KeyringVault;
-use tauri::{Emitter, Manager};
-use tauri_plugin_global_shortcut::{
-    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
-};
-
-fn default_record_shortcut() -> Shortcut {
-    let modifiers = if cfg!(target_os = "macos") {
-        Modifiers::SUPER | Modifiers::SHIFT
-    } else {
-        Modifiers::CONTROL | Modifiers::SHIFT
-    };
-    Shortcut::new(Some(modifiers), Code::Space)
-}
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -58,6 +46,8 @@ pub fn run() {
             commands::delete_secret,
             commands::list_audio_input_devices,
             commands::paste_text,
+            commands::register_hotkey,
+            commands::unregister_hotkey,
         ])
         .setup(|app| {
             log::info!("voxera setup: building AppState with TauriClipboard");
@@ -66,6 +56,7 @@ pub fn run() {
                 audio: Box::new(MicrophoneSource::new()),
                 vault: Box::new(KeyringVault::new()),
                 paster: Box::new(EnigoPaster::new(clipboard)),
+                current_hotkey: Mutex::new(None),
             };
             app.manage(app_state);
 
@@ -103,13 +94,6 @@ pub fn run() {
                     }
                 });
             }
-
-            let shortcut = default_record_shortcut();
-            app.global_shortcut().on_shortcut(shortcut, |app, _, event| {
-                if event.state() == ShortcutState::Pressed {
-                    let _ = app.emit("vox-era://shortcut-toggle", ());
-                }
-            })?;
 
             Ok(())
         })

@@ -1,7 +1,10 @@
 use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState, microphone::MicrophoneSource};
 use crate::paste::Paster;
 use crate::secrets::Vault;
-use tauri::State;
+use crate::shortcut::parse::{format_combo, parse_combo};
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use uuid::Uuid;
 
 /// Application state shared across Tauri commands.
@@ -10,10 +13,15 @@ use uuid::Uuid;
 /// swapped for in-memory mocks in tests. The clipboard is owned by the
 /// `Paster` (per spec §6.10 — `paste_text` combines clipboard write +
 /// keystroke), so it does not appear here as a separate field.
+///
+/// `current_hotkey` tracks the currently registered global shortcut so
+/// `register_hotkey` can unregister the previous combo before binding a
+/// new one. The JS side owns hotkey lifecycle on app start (per spec).
 pub struct AppState {
     pub audio: Box<dyn AudioSource>,
     pub vault: Box<dyn Vault>,
     pub paster: Box<dyn Paster>,
+    pub current_hotkey: Mutex<Option<Shortcut>>,
 }
 
 #[tauri::command]
@@ -108,4 +116,41 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
 #[tauri::command]
 pub fn list_audio_input_devices() -> Vec<AudioDeviceInfo> {
     MicrophoneSource::list_devices().unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn register_hotkey(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    combo: String,
+) -> Result<String, String> {
+    let shortcut = parse_combo(&combo).map_err(|e| e.to_string())?;
+    let mut current = state.current_hotkey.lock().map_err(|e| e.to_string())?;
+    if let Some(prev) = current.take() {
+        let _ = app.global_shortcut().unregister(prev);
+    }
+    let app_clone = app.clone();
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |_, _, event| {
+            if event.state() == ShortcutState::Pressed {
+                let _ = app_clone.emit("vox-era://shortcut-toggle", ());
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    *current = Some(shortcut);
+    Ok(format_combo(&shortcut))
+}
+
+#[tauri::command]
+pub fn unregister_hotkey(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut current = state.current_hotkey.lock().map_err(|e| e.to_string())?;
+    if let Some(prev) = current.take() {
+        app.global_shortcut()
+            .unregister(prev)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
