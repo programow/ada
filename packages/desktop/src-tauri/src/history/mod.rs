@@ -1,8 +1,9 @@
-pub mod repo;
-pub mod retention;
-pub mod stats;
+//! Migrations registration for `tauri-plugin-sql`. The actual data
+//! access lives in JS (`packages/desktop/src/lib/db.ts`).
 
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+pub const DB_URL: &str = "sqlite:vox-era.db";
 
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -20,5 +21,3 @@ pub fn migrations() -> Vec<Migration> {
         },
     ]
 }
-
-pub const DB_URL: &str = "sqlite:vox-era.db";
