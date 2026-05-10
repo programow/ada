@@ -5,6 +5,7 @@ import {
     OVERLAY_RESET_POSITION_EVENT,
     RECORDING_STATE_EVENT,
     exitOverlayPositionSetup,
+    requestRecordingToggle,
 } from '@/lib/overlay-bridge';
 import type { RecordingState } from '@/lib/recording-controller';
 import { listen } from '@tauri-apps/api/event';
@@ -190,5 +191,10 @@ export function OverlayApp() {
     useOverlayInitialPosition();
     useOverlayPositionPersistence();
     useOverlayResetHandler();
-    return <OverlayWindow state={determineOverlayState(recordingState, setupActive)} />;
+    return (
+        <OverlayWindow
+            state={determineOverlayState(recordingState, setupActive)}
+            onStop={() => void requestRecordingToggle()}
+        />
+    );
 }

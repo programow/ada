@@ -28,6 +28,7 @@ import {
     exitOverlayPositionSetup,
     hideOverlayWindow,
     publishRecordingState,
+    requestRecordingToggle,
     resetOverlayPosition,
 } from './overlay-bridge';
 
@@ -191,5 +192,17 @@ describe('resetOverlayPosition', () => {
     it('does not throw if emit fails', async () => {
         emitMock.mockRejectedValueOnce(new Error('boom'));
         await expect(resetOverlayPosition()).resolves.not.toThrow();
+    });
+});
+
+describe('requestRecordingToggle', () => {
+    it('emits the same event the OS hotkey fires', async () => {
+        await requestRecordingToggle();
+        expect(emitMock).toHaveBeenCalledWith('vox-era://shortcut-toggle', null);
+    });
+
+    it('does not throw if emit fails', async () => {
+        emitMock.mockRejectedValueOnce(new Error('boom'));
+        await expect(requestRecordingToggle()).resolves.not.toThrow();
     });
 });

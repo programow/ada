@@ -9,6 +9,7 @@ export type OverlayState =
 
 export interface OverlayWindowProps {
     state: OverlayState;
+    onStop?: () => void;
 }
 
 const PILL = cn(
@@ -76,6 +77,25 @@ function Waveform() {
     );
 }
 
+function StopButton({ onClick }: { onClick?: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label="Stop recording"
+            title="Stop"
+            className={cn(
+                'ml-1 flex h-5 w-5 items-center justify-center rounded-full',
+                'bg-white/15 text-white/85',
+                'hover:bg-white/25 hover:text-white active:bg-white/35',
+                'transition-colors',
+            )}
+        >
+            <span aria-hidden="true" className="block h-2 w-2 rounded-[1px] bg-current" />
+        </button>
+    );
+}
+
 function TranscribingDots() {
     return (
         <span className="pointer-events-none flex items-center gap-1" aria-hidden="true">
@@ -90,7 +110,7 @@ function TranscribingDots() {
     );
 }
 
-export function OverlayWindow({ state }: OverlayWindowProps) {
+export function OverlayWindow({ state, onStop }: OverlayWindowProps) {
     if (state.kind === 'hidden') return null;
 
     if (state.kind === 'recording') {
@@ -102,6 +122,7 @@ export function OverlayWindow({ state }: OverlayWindowProps) {
                 <span className="pointer-events-none text-[11px] font-medium tracking-wide">
                     Recording
                 </span>
+                <StopButton onClick={onStop} />
             </div>
         );
     }

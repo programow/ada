@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { OverlayWindow } from './OverlayWindow';
 
 describe('<OverlayWindow />', () => {
@@ -8,12 +9,11 @@ describe('<OverlayWindow />', () => {
         expect(container.firstChild).toBeNull();
     });
 
-    it('renders the recording pill (no buttons)', () => {
+    it('renders the recording pill', () => {
         render(<OverlayWindow state={{ kind: 'recording' }} />);
         const pill = screen.getByTestId('overlay-pill');
         expect(pill).toHaveAttribute('data-state', 'recording');
         expect(pill).toHaveTextContent(/recording/i);
-        expect(screen.queryByRole('button')).toBeNull();
     });
 
     it('renders the transcribing pill (no buttons)', () => {
@@ -53,5 +53,28 @@ describe('<OverlayWindow />', () => {
         const pill = screen.getByTestId('overlay-pill');
         expect(pill).not.toHaveAttribute('data-tauri-drag-region');
         expect(screen.getByTestId('overlay-drag-handle')).toHaveAttribute('data-tauri-drag-region');
+    });
+
+    it('renders a Stop button while recording', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
+    });
+
+    it('does not render a Stop button while transcribing', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
+    });
+
+    it('does not render a Stop button while positioning', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
+    });
+
+    it('invokes onStop when the Stop button is clicked', async () => {
+        const onStop = vi.fn();
+        const user = userEvent.setup();
+        render(<OverlayWindow state={{ kind: 'recording' }} onStop={onStop} />);
+        await user.click(screen.getByRole('button', { name: /stop/i }));
+        expect(onStop).toHaveBeenCalledTimes(1);
     });
 });
