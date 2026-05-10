@@ -56,6 +56,7 @@ pub fn run() {
             commands::get_secret,
             commands::set_secret,
             commands::delete_secret,
+            commands::list_audio_input_devices,
             commands::paste_text,
         ])
         .setup(|app| {

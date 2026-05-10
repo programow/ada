@@ -12,6 +12,14 @@ pub enum PermissionState {
     NotDetermined,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDeviceInfo {
+    pub id: String,
+    pub label: String,
+    pub is_default: bool,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AudioError {
     #[error("microphone permission not granted")]

@@ -30,6 +30,29 @@ impl MicrophoneSource {
             sessions: Arc::new(Mutex::new(Vec::new())),
         }
     }
+
+    pub fn list_devices() -> Result<Vec<crate::audio::AudioDeviceInfo>, AudioError> {
+        use cpal::traits::{DeviceTrait, HostTrait};
+        let host = cpal::default_host();
+        let default_name = host
+            .default_input_device()
+            .and_then(|d| d.name().ok());
+        let devices = host
+            .input_devices()
+            .map_err(|e| AudioError::DeviceUnavailable(e.to_string()))?;
+        let mut out = Vec::new();
+        for d in devices {
+            if let Ok(name) = d.name() {
+                let is_default = default_name.as_deref() == Some(name.as_str());
+                out.push(crate::audio::AudioDeviceInfo {
+                    id: name.clone(),
+                    label: name,
+                    is_default,
+                });
+            }
+        }
+        Ok(out)
+    }
 }
 
 impl Default for MicrophoneSource {
@@ -212,5 +235,14 @@ mod tests {
         let bytes = encode_wav_pcm16(&[0, 0, 0, 0], 16000);
         assert_eq!(&bytes[..4], b"RIFF");
         assert_eq!(&bytes[8..12], b"WAVE");
+    }
+
+    #[test]
+    fn list_devices_returns_at_least_one_entry_or_empty_vec() {
+        // CI runners always have at least the system default; locally devices
+        // come and go. Just assert the call doesn't panic and returns something
+        // serializable.
+        let result = MicrophoneSource::list_devices();
+        assert!(result.is_ok(), "list_devices should not error: {result:?}");
     }
 }

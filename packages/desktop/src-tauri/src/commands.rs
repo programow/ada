@@ -1,4 +1,4 @@
-use crate::audio::{AudioSource, CaptureSession, PermissionState};
+use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState, microphone::MicrophoneSource};
 use crate::paste::Paster;
 use crate::secrets::Vault;
 use tauri::State;
@@ -97,4 +97,9 @@ pub fn delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<()
 #[tauri::command]
 pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
     state.paster.paste_text(&text)
+}
+
+#[tauri::command]
+pub fn list_audio_input_devices() -> Vec<AudioDeviceInfo> {
+    MicrophoneSource::list_devices().unwrap_or_default()
 }
