@@ -128,26 +128,49 @@ impl AudioSource for MicrophoneSource {
                     }
                 };
                 let sample_rate = config.sample_rate().0;
+                let channels = config.channels() as usize;
+                let sample_format = config.sample_format();
+                let stream_config: cpal::StreamConfig = config.into();
                 let err_fn = |err| log::error!("cpal stream error: {err}");
                 let samples_clone = samples_for_worker.clone();
-                let stream_result = match config.sample_format() {
+                // Downmix any multichannel input to mono. Built-in mics on
+                // macOS often default to stereo at 48 kHz; tagging the WAV as
+                // mono while the buffer holds interleaved stereo frames
+                // halves the apparent playback rate ("slow motion").
+                let stream_result = match sample_format {
                     SampleFormat::F32 => device.build_input_stream(
-                        &config.into(),
+                        &stream_config,
                         move |data: &[f32], _: &_| {
                             let mut buf = samples_clone.lock().unwrap();
-                            buf.extend(
-                                data.iter()
-                                    .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16),
-                            );
+                            if channels <= 1 {
+                                buf.extend(
+                                    data.iter()
+                                        .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16),
+                                );
+                            } else {
+                                for frame in data.chunks_exact(channels) {
+                                    let avg =
+                                        frame.iter().sum::<f32>() / channels as f32;
+                                    buf.push((avg.clamp(-1.0, 1.0) * 32767.0) as i16);
+                                }
+                            }
                         },
                         err_fn,
                         None,
                     ),
                     SampleFormat::I16 => device.build_input_stream(
-                        &config.into(),
+                        &stream_config,
                         move |data: &[i16], _: &_| {
                             let mut buf = samples_clone.lock().unwrap();
-                            buf.extend_from_slice(data);
+                            if channels <= 1 {
+                                buf.extend_from_slice(data);
+                            } else {
+                                for frame in data.chunks_exact(channels) {
+                                    let sum: i32 =
+                                        frame.iter().map(|&s| s as i32).sum();
+                                    buf.push((sum / channels as i32) as i16);
+                                }
+                            }
                         },
                         err_fn,
                         None,
