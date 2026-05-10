@@ -9,55 +9,72 @@ describe('<OverlayWindow />', () => {
         expect(container.firstChild).toBeNull();
     });
 
-    it('shows the idle pill with a Record action when state is idle', () => {
-        render(<OverlayWindow state={{ kind: 'idle' }} />);
-        expect(screen.getByTestId('overlay-pill')).toHaveTextContent(/idle/i);
-        expect(screen.getByRole('button', { name: /record/i })).toBeInTheDocument();
+    it('renders the recording pill', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-state', 'recording');
+        expect(pill).toHaveTextContent(/recording/i);
     });
 
-    it("shows 'Recording' and a Stop button when state is recording", () => {
+    it('renders the transcribing pill (no buttons)', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-state', 'transcribing');
+        expect(pill).toHaveTextContent(/transcribing/i);
+        expect(screen.queryByRole('button')).toBeNull();
+    });
+
+    it('renders the positioning pill with a drag prompt', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).toHaveAttribute('data-state', 'positioning');
+        expect(pill).toHaveTextContent(/drag to position/i);
+        expect(screen.queryByRole('button')).toBeNull();
+    });
+
+    it('confines the drag region to the handle, not the whole pill (recording)', () => {
         render(<OverlayWindow state={{ kind: 'recording' }} />);
-        expect(screen.getByTestId('overlay-pill')).toHaveTextContent(/recording/i);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        const handle = screen.getByTestId('overlay-drag-handle');
+        expect(handle).toHaveAttribute('data-tauri-drag-region');
+        expect(handle.className).toMatch(/cursor-grab/);
+    });
+
+    it('confines the drag region to the handle for the transcribing pill', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        expect(screen.getByTestId('overlay-drag-handle')).toHaveAttribute('data-tauri-drag-region');
+    });
+
+    it('confines the drag region to the handle for the positioning pill', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        const pill = screen.getByTestId('overlay-pill');
+        expect(pill).not.toHaveAttribute('data-tauri-drag-region');
+        expect(screen.getByTestId('overlay-drag-handle')).toHaveAttribute('data-tauri-drag-region');
+    });
+
+    it('renders a Stop button while recording', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
         expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
     });
 
-    it("shows 'Transcribing' when state is transcribing", () => {
+    it('does not render a Stop button while transcribing', () => {
         render(<OverlayWindow state={{ kind: 'transcribing' }} />);
-        expect(screen.getByTestId('overlay-pill')).toHaveTextContent(/transcribing/i);
+        expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
     });
 
-    it('shows the transcribed text and a Paste action when state is resultPreview', () => {
-        render(<OverlayWindow state={{ kind: 'resultPreview', text: 'Hello world' }} />);
-        expect(screen.getByTestId('overlay-pill')).toHaveTextContent(/hello world/i);
-        expect(screen.getByRole('button', { name: /paste/i })).toBeInTheDocument();
+    it('does not render a Stop button while positioning', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        expect(screen.queryByRole('button', { name: /stop/i })).toBeNull();
     });
 
-    it('invokes onRecord when the record button is clicked', async () => {
-        const onRecord = vi.fn();
-        const user = userEvent.setup();
-        render(<OverlayWindow state={{ kind: 'idle' }} onRecord={onRecord} />);
-        await user.click(screen.getByRole('button', { name: /record/i }));
-        expect(onRecord).toHaveBeenCalledTimes(1);
-    });
-
-    it('invokes onStop when the stop button is clicked', async () => {
+    it('invokes onStop when the Stop button is clicked', async () => {
         const onStop = vi.fn();
         const user = userEvent.setup();
         render(<OverlayWindow state={{ kind: 'recording' }} onStop={onStop} />);
         await user.click(screen.getByRole('button', { name: /stop/i }));
         expect(onStop).toHaveBeenCalledTimes(1);
-    });
-
-    it('invokes onPaste with the result text when the paste button is clicked', async () => {
-        const onPaste = vi.fn();
-        const user = userEvent.setup();
-        render(
-            <OverlayWindow
-                state={{ kind: 'resultPreview', text: 'Greetings' }}
-                onPaste={onPaste}
-            />,
-        );
-        await user.click(screen.getByRole('button', { name: /paste/i }));
-        expect(onPaste).toHaveBeenCalledWith('Greetings');
     });
 });

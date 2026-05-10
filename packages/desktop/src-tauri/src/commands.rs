@@ -69,34 +69,27 @@ pub fn stop_recording(
 #[tauri::command]
 pub fn get_secret(
     state: State<'_, AppState>,
-    provider_id: String,
+    secret_id: String,
 ) -> Result<Option<String>, String> {
-    let opt = state.vault.get(&provider_id).map_err(|e| e.to_string())?;
+    let opt = state.vault.get(&secret_id).map_err(|e| e.to_string())?;
     Ok(opt.map(|z| z.to_string()))
 }
 
 #[tauri::command]
 pub fn set_secret(
     state: State<'_, AppState>,
-    provider_id: String,
+    secret_id: String,
     key: String,
 ) -> Result<(), String> {
     state
         .vault
-        .set(&provider_id, &key)
+        .set(&secret_id, &key)
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_secret(state: State<'_, AppState>, provider_id: String) -> Result<(), String> {
-    state.vault.delete(&provider_id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn list_configured_providers(
-    state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
-    state.vault.list_configured().map_err(|e| e.to_string())
+pub fn delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<(), String> {
+    state.vault.delete(&secret_id).map_err(|e| e.to_string())
 }
 
 /// Combined clipboard write + paste keystroke (Cmd+V on macOS, Ctrl+V

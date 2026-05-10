@@ -16,11 +16,11 @@ describe('invoke wrapper', () => {
         expect(result).toBe('Granted');
     });
 
-    it('setSecret passes camelCase args translated to snake_case', async () => {
+    it('setSecret passes the secret id and key', async () => {
         vi.mocked(core.invoke).mockResolvedValueOnce(undefined);
-        await vox.setSecret('openai', 'sk-test');
+        await vox.setSecret('00000000-0000-0000-0000-000000000001', 'sk-test');
         expect(core.invoke).toHaveBeenCalledWith('set_secret', {
-            providerId: 'openai',
+            secretId: '00000000-0000-0000-0000-000000000001',
             key: 'sk-test',
         });
     });

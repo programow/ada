@@ -1,8 +1,17 @@
 use std::sync::{Arc, Mutex};
+use std::thread::sleep;
+use std::time::Duration;
 
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 
 use crate::clipboard::Clipboard;
+
+/// Inter-process settle delay between writing the clipboard and synthesising
+/// the paste keystroke. macOS's `pboard` daemon — which the *receiving* app
+/// queries on `Cmd+V` — may not have committed our update yet even after our
+/// own process's `setString:forType:` call returns. Empirically ~50 ms is
+/// enough; we use 80 ms for headroom.
+const PBOARD_SETTLE_DELAY: Duration = Duration::from_millis(80);
 
 /// Trait abstracting "paste text into the active application" so callers can
 /// be tested without touching the real OS clipboard or synthesizing keystrokes.
@@ -49,8 +58,16 @@ impl<C: Clipboard> EnigoPaster<C> {
 
 impl<C: Clipboard> Paster for EnigoPaster<C> {
     fn paste_text(&self, text: &str) -> Result<(), String> {
-        self.clipboard.write_text(text)?;
-        self.send_paste_keystroke()
+        self.clipboard.write_text(text).map_err(|e| {
+            log::error!("paste_text: clipboard write failed: {e}");
+            e
+        })?;
+        // Allow pboard to propagate to other processes before the keystroke.
+        sleep(PBOARD_SETTLE_DELAY);
+        self.send_paste_keystroke().map_err(|e| {
+            log::error!("paste_text: enigo keystroke failed: {e}");
+            e
+        })
     }
 }
 

@@ -1,6 +1,34 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/db', () => ({
+    listApiKeys: vi.fn(async () => []),
+    listModelConfigs: vi.fn(async () => []),
+    getActiveModelConfigId: vi.fn(async () => null),
+    getOverlayEnabled: vi.fn(async () => true),
+    setOverlayEnabled: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/lib/overlay-bridge', () => ({
+    publishRecordingState: vi.fn(async () => undefined),
+    hideOverlayWindow: vi.fn(async () => undefined),
+    enterOverlayPositionSetup: vi.fn(async () => undefined),
+    exitOverlayPositionSetup: vi.fn(async () => undefined),
+    resetOverlayPosition: vi.fn(async () => undefined),
+    RECORDING_STATE_EVENT: 'vox-era://recording-state',
+    OVERLAY_POSITION_SETUP_OFF_EVENT: 'vox-era://overlay-position-setup-off',
+}));
+
+vi.mock('@tauri-apps/api/event', () => ({
+    listen: vi.fn(async () => () => undefined),
+    emit: vi.fn(async () => undefined),
+}));
+
+vi.mock('@tauri-apps/api/webviewWindow', () => ({
+    WebviewWindow: { getByLabel: vi.fn(async () => null) },
+}));
+
 import { MainWindow } from './MainWindow';
 
 describe('<MainWindow />', () => {

@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
@@ -39,6 +39,7 @@ core-graphics = "0.24"
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSPanel", "NSResponder", "NSGraphics"] }
 objc2-av-foundation = { version = "0.3", features = ["AVCaptureDevice", "AVMediaFormat", "block2"] }
 block2 = "0.6"
 

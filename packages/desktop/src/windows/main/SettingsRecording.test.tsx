@@ -16,6 +16,11 @@ describe('<SettingsRecording />', () => {
         expect(screen.getByRole('button', { name: /test recording/i })).toBeInTheDocument();
     });
 
+    it('shows a coming-soon badge on the section header', () => {
+        render(<SettingsRecording devices={devices} />);
+        expect(screen.getByTestId('coming-soon-badge')).toBeInTheDocument();
+    });
+
     it('lists every supplied device in the select', () => {
         render(<SettingsRecording devices={devices} />);
         const select = screen.getByLabelText(/microphone/i) as HTMLSelectElement;
