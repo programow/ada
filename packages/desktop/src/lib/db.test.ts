@@ -22,10 +22,12 @@ import {
     deleteModelConfig,
     getActiveModelConfigId,
     getModelConfigWithApiKey,
+    getOverlayEnabled,
     listApiKeys,
     listModelConfigDependencies,
     listModelConfigs,
     setActiveModelConfigId,
+    setOverlayEnabled,
 } from './db';
 
 beforeEach(() => {
@@ -231,6 +233,39 @@ describe('db.activeModelConfigId', () => {
         expect(fakeDb.execute).toHaveBeenCalledWith(
             expect.stringMatching(/DELETE FROM app_state/i),
             ['active_model_config_id'],
+        );
+    });
+});
+
+describe('db.overlayEnabled', () => {
+    it('returns true when no row exists (default)', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        await expect(getOverlayEnabled()).resolves.toBe(true);
+    });
+
+    it('returns true when stored value is "true"', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: 'true' }]);
+        await expect(getOverlayEnabled()).resolves.toBe(true);
+    });
+
+    it('returns false when stored value is "false"', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: 'false' }]);
+        await expect(getOverlayEnabled()).resolves.toBe(false);
+    });
+
+    it('upserts "true" when setOverlayEnabled(true)', async () => {
+        await setOverlayEnabled(true);
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state.*ON CONFLICT/is),
+            ['overlay_enabled', 'true'],
+        );
+    });
+
+    it('upserts "false" when setOverlayEnabled(false)', async () => {
+        await setOverlayEnabled(false);
+        expect(fakeDb.execute).toHaveBeenCalledWith(
+            expect.stringMatching(/INSERT INTO app_state.*ON CONFLICT/is),
+            ['overlay_enabled', 'false'],
         );
     });
 });

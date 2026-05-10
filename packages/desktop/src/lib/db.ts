@@ -3,6 +3,7 @@ import Database from '@tauri-apps/plugin-sql';
 
 const DB_URL = 'sqlite:vox-era.db';
 const ACTIVE_MODEL_CONFIG_KEY = 'active_model_config_id';
+const OVERLAY_ENABLED_KEY = 'overlay_enabled';
 
 export interface ApiKeyRow {
     id: string;
@@ -177,6 +178,23 @@ export async function setActiveModelConfigId(id: string | null): Promise<void> {
     await conn.execute(
         'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
         [ACTIVE_MODEL_CONFIG_KEY, id],
+    );
+}
+
+export async function getOverlayEnabled(): Promise<boolean> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        OVERLAY_ENABLED_KEY,
+    ])) as { value: string }[];
+    if (!rows[0]) return true;
+    return rows[0].value === 'true';
+}
+
+export async function setOverlayEnabled(enabled: boolean): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [OVERLAY_ENABLED_KEY, enabled ? 'true' : 'false'],
     );
 }
 

@@ -1,37 +1,48 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ComingSoonBadge } from '@/components/ui/coming-soon-badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useId, useState } from 'react';
+import { getOverlayEnabled, setOverlayEnabled } from '@/lib/db';
+import { hideOverlayWindow } from '@/lib/overlay-bridge';
+import { useEffect, useId, useState } from 'react';
 
 export function SettingsOverlay() {
     const enableId = useId();
-    const positionId = useId();
     const [enabled, setEnabled] = useState(true);
-    const [position, setPosition] = useState<'top' | 'bottom'>('bottom');
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            const value = await getOverlayEnabled();
+            if (cancelled) return;
+            setEnabled(value);
+            setLoaded(true);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    async function handleChange(next: boolean) {
+        setEnabled(next);
+        await setOverlayEnabled(next);
+        if (!next) await hideOverlayWindow();
+    }
 
     return (
-        <Card className="opacity-60" data-coming-soon="true">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <Card>
+            <CardHeader>
                 <CardTitle>Overlay</CardTitle>
-                <ComingSoonBadge />
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm font-medium normal-case">
                 <div className="flex items-center justify-between">
                     <Label htmlFor={enableId}>Enable overlay</Label>
-                    <Switch id={enableId} checked={enabled} onCheckedChange={setEnabled} />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor={positionId}>Position</Label>
-                    <select
-                        id={positionId}
-                        className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo"
-                        value={position}
-                        onChange={(e) => setPosition(e.target.value as 'top' | 'bottom')}
-                    >
-                        <option value="bottom">Bottom</option>
-                        <option value="top">Top</option>
-                    </select>
+                    <Switch
+                        id={enableId}
+                        checked={enabled}
+                        disabled={!loaded}
+                        onCheckedChange={(v) => void handleChange(v)}
+                    />
                 </div>
             </CardContent>
         </Card>
