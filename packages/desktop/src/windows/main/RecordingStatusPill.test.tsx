@@ -9,7 +9,11 @@ describe('<RecordingStatusPill />', () => {
     });
 
     it('renders the Recording pill while recording', () => {
-        render(<RecordingStatusPill state={{ kind: 'recording', sessionId: 'session-1' }} />);
+        render(
+            <RecordingStatusPill
+                state={{ kind: 'recording', sessionId: 'session-1', startedAt: 0 }}
+            />,
+        );
         const pill = screen.getByTestId('status-pill');
         expect(pill).toHaveAttribute('data-state', 'recording');
         expect(pill).toHaveTextContent(/recording/i);

@@ -47,7 +47,7 @@ describe('publishRecordingState (overlay enabled)', () => {
     });
 
     it('shows the overlay window on recording', async () => {
-        await publishRecordingState({ kind: 'recording', sessionId: 'session-1' });
+        await publishRecordingState({ kind: 'recording', sessionId: 'session-1', startedAt: 0 });
         expect(getByLabelMock).toHaveBeenCalledWith('overlay');
         expect(fakeOverlay.show).toHaveBeenCalled();
         expect(fakeOverlay.hide).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('publishRecordingState (overlay enabled)', () => {
     it('does not throw if the overlay window is not registered', async () => {
         getByLabelMock.mockResolvedValueOnce(null);
         await expect(
-            publishRecordingState({ kind: 'recording', sessionId: 's' }),
+            publishRecordingState({ kind: 'recording', sessionId: 's', startedAt: 0 }),
         ).resolves.not.toThrow();
         expect(emitMock).toHaveBeenCalled();
     });
@@ -82,7 +82,7 @@ describe('publishRecordingState (overlay enabled)', () => {
     it('does not throw if show fails', async () => {
         fakeOverlay.show.mockRejectedValueOnce(new Error('boom'));
         await expect(
-            publishRecordingState({ kind: 'recording', sessionId: 's' }),
+            publishRecordingState({ kind: 'recording', sessionId: 's', startedAt: 0 }),
         ).resolves.not.toThrow();
     });
 
@@ -98,7 +98,7 @@ describe('publishRecordingState (overlay disabled)', () => {
     });
 
     it('hides the overlay window on recording (no show)', async () => {
-        await publishRecordingState({ kind: 'recording', sessionId: 's' });
+        await publishRecordingState({ kind: 'recording', sessionId: 's', startedAt: 0 });
         expect(fakeOverlay.show).not.toHaveBeenCalled();
         expect(fakeOverlay.hide).toHaveBeenCalled();
     });
@@ -110,7 +110,7 @@ describe('publishRecordingState (overlay disabled)', () => {
     });
 
     it('still emits the recording-state event for the main window pill', async () => {
-        await publishRecordingState({ kind: 'recording', sessionId: 's' });
+        await publishRecordingState({ kind: 'recording', sessionId: 's', startedAt: 0 });
         expect(emitMock).toHaveBeenCalled();
     });
 });
@@ -118,7 +118,7 @@ describe('publishRecordingState (overlay disabled)', () => {
 describe('publishRecordingState (getOverlayEnabled fails)', () => {
     it('falls back to showing on recording', async () => {
         getOverlayEnabledMock.mockRejectedValueOnce(new Error('db boom'));
-        await publishRecordingState({ kind: 'recording', sessionId: 's' });
+        await publishRecordingState({ kind: 'recording', sessionId: 's', startedAt: 0 });
         expect(fakeOverlay.show).toHaveBeenCalled();
     });
 });

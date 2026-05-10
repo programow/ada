@@ -41,7 +41,13 @@ describe('recording-controller toggle', () => {
             expect(deps.vox.checkMicrophonePermission).toHaveBeenCalled();
             expect(deps.vox.requestMicrophonePermission).not.toHaveBeenCalled();
             expect(deps.vox.startRecording).toHaveBeenCalled();
-            expect(states).toEqual([{ kind: 'recording', sessionId: 'session-1' }]);
+            expect(states).toHaveLength(1);
+            const first = states[0];
+            if (!first || first.kind !== 'recording') {
+                throw new Error(`expected recording state, got ${first?.kind}`);
+            }
+            expect(first.sessionId).toBe('session-1');
+            expect(typeof first.startedAt).toBe('number');
         });
 
         it('requests permission when undetermined and starts on grant', async () => {
@@ -74,7 +80,11 @@ describe('recording-controller toggle', () => {
     });
 
     describe('from recording', () => {
-        const recState: RecordingState = { kind: 'recording', sessionId: 'session-1' };
+        const recState: RecordingState = {
+            kind: 'recording',
+            sessionId: 'session-1',
+            startedAt: 0,
+        };
 
         it('stops, publishes transcribing, then idle on the happy path', async () => {
             const { setState, states } = makeSetState();

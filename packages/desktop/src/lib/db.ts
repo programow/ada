@@ -27,6 +27,16 @@ export interface ModelConfigWithApiKey {
     apiKeyNickname: string;
 }
 
+export interface TranscriptionRow {
+    id: number;
+    createdAt: number;
+    text: string;
+    durationMs: number;
+    wordCount: number;
+    providerId: string;
+    modelId: string;
+}
+
 let cached: Promise<Awaited<ReturnType<typeof Database.load>>> | null = null;
 function db() {
     if (!cached) cached = Database.load(DB_URL);
@@ -156,6 +166,14 @@ export async function addModelConfig(input: {
     ])) as RawModelConfigJoined[];
     const row = rows[0];
     if (!row) throw new Error('Inserted model_config disappeared before read-back');
+
+    // Promote first-ever config to active so the recording loop has a target
+    // without requiring the user to discover the click-to-activate UX.
+    const currentActive = await getActiveModelConfigId();
+    if (currentActive === null) {
+        await setActiveModelConfigId(id);
+    }
+
     return mapModelConfig(row);
 }
 
@@ -234,4 +252,61 @@ export async function getModelConfigWithApiKey(id: string): Promise<ModelConfigW
         id,
     ])) as RawModelConfigJoined[];
     return rows[0] ? mapModelConfig(rows[0]) : null;
+}
+
+function countWords(text: string): number {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+}
+
+export async function saveTranscription(input: {
+    text: string;
+    durationMs: number;
+    providerId: string;
+    modelId: string;
+}): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO transcriptions (created_at, text, duration_ms, word_count, provider_id, model_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+            Date.now(),
+            input.text,
+            input.durationMs,
+            countWords(input.text),
+            input.providerId,
+            input.modelId,
+        ],
+    );
+}
+
+interface RawTranscription {
+    id: number;
+    created_at: number;
+    text: string;
+    duration_ms: number;
+    word_count: number;
+    provider_id: string;
+    model_id: string;
+}
+
+export async function listTranscriptions(
+    options: { limit?: number; offset?: number } = {},
+): Promise<TranscriptionRow[]> {
+    const conn = await db();
+    const limit = options.limit ?? 200;
+    const offset = options.offset ?? 0;
+    const rows = (await conn.select(
+        'SELECT id, created_at, text, duration_ms, word_count, provider_id, model_id FROM transcriptions WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        [limit, offset],
+    )) as RawTranscription[];
+    return rows.map((r) => ({
+        id: r.id,
+        createdAt: r.created_at,
+        text: r.text,
+        durationMs: r.duration_ms,
+        wordCount: r.word_count,
+        providerId: r.provider_id,
+        modelId: r.model_id,
+    }));
 }

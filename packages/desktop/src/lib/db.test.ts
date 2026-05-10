@@ -184,6 +184,9 @@ describe('db.addModelConfig', () => {
                 nickname: 'Personal',
             },
         ]);
+        // addModelConfig now also reads the current active id to auto-promote
+        // the first config; return null (no active) so the auto-promote runs.
+        fakeDb.select.mockImplementationOnce(async () => [] as { value: string }[]);
         const row = await addModelConfig({ apiKeyId: 'key-1', modelId: 'whisper-1' });
         expect(row.apiKeyId).toBe('key-1');
         expect(row.modelId).toBe('whisper-1');
@@ -191,6 +194,35 @@ describe('db.addModelConfig', () => {
             expect.stringMatching(/INSERT INTO model_configs/i),
             [row.id, 'key-1', 'whisper-1'],
         );
+        // The auto-promote upsert into app_state should fire.
+        const upsertCalls = fakeDb.execute.mock.calls.filter((c) =>
+            /INSERT INTO app_state/i.test(c[0] as string),
+        );
+        expect(upsertCalls).toHaveLength(1);
+    });
+
+    it('does not change the active selection when one already exists', async () => {
+        let storedId = '';
+        fakeDb.execute.mockImplementationOnce(async (_sql, params) => {
+            storedId = (params as string[])[0] ?? '';
+            return { rowsAffected: 1, lastInsertId: 0 };
+        });
+        fakeDb.select.mockImplementationOnce(async () => [
+            {
+                id: storedId,
+                api_key_id: 'key-1',
+                model_id: 'whisper-1',
+                provider_id: 'openai',
+                nickname: 'Personal',
+            },
+        ]);
+        // An active config already exists; addModelConfig must NOT overwrite it.
+        fakeDb.select.mockImplementationOnce(async () => [{ value: 'mc-existing' }]);
+        await addModelConfig({ apiKeyId: 'key-1', modelId: 'whisper-1' });
+        const upsertCalls = fakeDb.execute.mock.calls.filter((c) =>
+            /INSERT INTO app_state/i.test(c[0] as string),
+        );
+        expect(upsertCalls).toHaveLength(0);
     });
 });
 
