@@ -78,7 +78,7 @@ export function MainWindow() {
                 >
                     <SettingsApiKeys />
                     <SettingsModelConfigs />
-                    <SettingsRecording devices={[]} />
+                    <SettingsRecording />
                     <SettingsOverlay />
                     <SettingsHistory />
                     <SettingsTheme />

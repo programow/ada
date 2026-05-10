@@ -1,77 +1,138 @@
+import { HotkeyInput } from '@/components/HotkeyInput';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ComingSoonBadge } from '@/components/ui/coming-soon-badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useId, useState } from 'react';
+import {
+    getHotkeyCombo,
+    getSelectedMicDeviceId,
+    setHotkeyCombo,
+    setSelectedMicDeviceId,
+} from '@/lib/db';
+import { type AudioDeviceInfo, vox } from '@/lib/invoke';
+import { useCallback, useEffect, useId, useState } from 'react';
 
-export interface MicDevice {
-    deviceId: string;
-    label: string;
-}
-
-export interface SettingsRecordingProps {
-    devices: readonly MicDevice[];
-    hotkey?: string;
-    selectedDeviceId?: string;
-    onHotkeyChange?: (hotkey: string) => void;
-    onDeviceChange?: (deviceId: string) => void;
-    onTestRecording?: () => void;
-}
-
-export function SettingsRecording({
-    devices,
-    hotkey: hotkeyProp = 'Cmd+Shift+Space',
-    selectedDeviceId,
-    onHotkeyChange,
-    onDeviceChange,
-    onTestRecording,
-}: SettingsRecordingProps) {
+export function SettingsRecording() {
     const hotkeyId = useId();
     const deviceId = useId();
-    const [hotkey, setHotkey] = useState(hotkeyProp);
-    const [device, setDevice] = useState(selectedDeviceId ?? devices[0]?.deviceId ?? '');
+    const [devices, setDevices] = useState<AudioDeviceInfo[]>([]);
+    const [selectedDevice, setSelectedDevice] = useState<string>('');
+    const [hotkey, setHotkey] = useState<string>('');
+    const [testStatus, setTestStatus] = useState<'idle' | 'recording' | 'playing' | 'error'>(
+        'idle',
+    );
+    const [testError, setTestError] = useState<string | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+    const refreshDevices = useCallback(async () => {
+        try {
+            const list = await vox.listAudioInputDevices();
+            setDevices(list);
+        } catch {
+            setDevices([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        void (async () => {
+            const [persistedDevice, persistedHotkey] = await Promise.all([
+                getSelectedMicDeviceId(),
+                getHotkeyCombo(),
+            ]);
+            setSelectedDevice(persistedDevice ?? '');
+            setHotkey(persistedHotkey);
+            await refreshDevices();
+        })();
+    }, [refreshDevices]);
+
+    async function handleDeviceChange(next: string) {
+        setSelectedDevice(next);
+        await setSelectedMicDeviceId(next === '' ? null : next);
+    }
+
+    async function handleHotkeyChange(combo: string) {
+        setHotkey(combo);
+        await setHotkeyCombo(combo);
+        try {
+            await vox.registerHotkey(combo);
+        } catch (e) {
+            console.error('register_hotkey failed', e);
+        }
+    }
+
+    async function handleTestRecording() {
+        setTestStatus('recording');
+        setTestError(null);
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        try {
+            const sessionId = await vox.startRecording(
+                selectedDevice === '' ? undefined : selectedDevice,
+            );
+            await new Promise((r) => setTimeout(r, 3000));
+            const bytes = await vox.stopRecording(sessionId);
+            const blob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            setAudioUrl(url);
+            setTestStatus('playing');
+        } catch (e) {
+            setTestError(e instanceof Error ? e.message : String(e));
+            setTestStatus('error');
+        }
+    }
 
     return (
-        <Card className="opacity-60" data-coming-soon="true">
-            <CardHeader className="flex flex-row items-center justify-between">
+        <Card>
+            <CardHeader>
                 <CardTitle>Recording</CardTitle>
-                <ComingSoonBadge />
             </CardHeader>
             <CardContent className="flex flex-col gap-4 text-sm font-medium normal-case">
                 <div className="flex flex-col gap-1">
                     <Label htmlFor={hotkeyId}>Hotkey</Label>
-                    <Input
-                        id={hotkeyId}
-                        value={hotkey}
-                        onChange={(e) => {
-                            setHotkey(e.target.value);
-                            onHotkeyChange?.(e.target.value);
-                        }}
-                        placeholder="e.g. Cmd+Shift+Space"
-                    />
+                    <div id={hotkeyId}>
+                        <HotkeyInput value={hotkey} onChange={handleHotkeyChange} />
+                    </div>
                 </div>
                 <div className="flex flex-col gap-1">
                     <Label htmlFor={deviceId}>Microphone</Label>
-                    <select
-                        id={deviceId}
-                        className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
-                        value={device}
-                        onChange={(e) => {
-                            setDevice(e.target.value);
-                            onDeviceChange?.(e.target.value);
-                        }}
+                    <div className="flex items-center gap-2">
+                        <select
+                            id={deviceId}
+                            className="h-10 flex-1 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                            value={selectedDevice}
+                            onChange={(e) => void handleDeviceChange(e.target.value)}
+                        >
+                            <option value="">System default</option>
+                            {devices.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                    {d.label}
+                                </option>
+                            ))}
+                        </select>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void refreshDevices()}
+                        >
+                            Refresh
+                        </Button>
+                    </div>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span data-testid="test-status" className="text-xs uppercase tracking-widest">
+                        {testStatus === 'recording' && 'Recording 3s…'}
+                        {testStatus === 'playing' && 'Captured. Press play.'}
+                        {testStatus === 'error' && `Error: ${testError}`}
+                    </span>
+                    <Button
+                        onClick={() => void handleTestRecording()}
+                        disabled={testStatus === 'recording'}
                     >
-                        {devices.map((d) => (
-                            <option key={d.deviceId} value={d.deviceId}>
-                                {d.label}
-                            </option>
-                        ))}
-                    </select>
+                        Test recording
+                    </Button>
                 </div>
-                <div className="flex justify-end">
-                    <Button onClick={() => onTestRecording?.()}>Test recording</Button>
-                </div>
+                {audioUrl && testStatus === 'playing' && (
+                    /* biome-ignore lint/a11y/useMediaCaption: test playback only */
+                    <audio src={audioUrl} controls className="w-full" />
+                )}
             </CardContent>
         </Card>
     );

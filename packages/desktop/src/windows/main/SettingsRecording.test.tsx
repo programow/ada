@@ -1,55 +1,94 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsRecording } from './SettingsRecording';
 
-const devices = [
-    { deviceId: 'default', label: 'Default microphone' },
-    { deviceId: 'usb-mic', label: 'USB Microphone' },
-];
+vi.mock('@/lib/invoke', () => ({
+    vox: {
+        listAudioInputDevices: vi.fn(),
+        startRecording: vi.fn(),
+        stopRecording: vi.fn(),
+        registerHotkey: vi.fn(),
+    },
+}));
+vi.mock('@/lib/db', () => ({
+    getSelectedMicDeviceId: vi.fn(),
+    setSelectedMicDeviceId: vi.fn(),
+    getHotkeyCombo: vi.fn(),
+    setHotkeyCombo: vi.fn(),
+}));
 
-describe('<SettingsRecording />', () => {
-    it('renders a hotkey input, a mic device select, and a test-recording button', () => {
-        render(<SettingsRecording devices={devices} />);
-        expect(screen.getByLabelText(/hotkey/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/microphone/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /test recording/i })).toBeInTheDocument();
-    });
+import {
+    getHotkeyCombo,
+    getSelectedMicDeviceId,
+    setHotkeyCombo,
+    setSelectedMicDeviceId,
+} from '@/lib/db';
+import { vox } from '@/lib/invoke';
 
-    it('shows a coming-soon badge on the section header', () => {
-        render(<SettingsRecording devices={devices} />);
-        expect(screen.getByTestId('coming-soon-badge')).toBeInTheDocument();
-    });
+const voxMock = vi.mocked(vox);
+const getSelectedMicDeviceIdMock = vi.mocked(getSelectedMicDeviceId);
+const setSelectedMicDeviceIdMock = vi.mocked(setSelectedMicDeviceId);
+const getHotkeyComboMock = vi.mocked(getHotkeyCombo);
+const setHotkeyComboMock = vi.mocked(setHotkeyCombo);
 
-    it('lists every supplied device in the select', () => {
-        render(<SettingsRecording devices={devices} />);
+beforeEach(() => {
+    voxMock.listAudioInputDevices.mockResolvedValue([
+        { id: 'usb', label: 'USB Mic', isDefault: false },
+        { id: 'builtin', label: 'Built-in', isDefault: true },
+    ]);
+    voxMock.registerHotkey.mockResolvedValue('Cmd+Shift+Space');
+    getSelectedMicDeviceIdMock.mockResolvedValue(null);
+    getHotkeyComboMock.mockResolvedValue('Cmd+Shift+Space');
+    setSelectedMicDeviceIdMock.mockResolvedValue();
+    setHotkeyComboMock.mockResolvedValue();
+});
+
+describe('SettingsRecording', () => {
+    it('loads + renders the device list with System default first', async () => {
+        render(<SettingsRecording />);
+        await waitFor(() => {
+            expect(screen.getByLabelText(/microphone/i)).toBeInTheDocument();
+        });
         const select = screen.getByLabelText(/microphone/i) as HTMLSelectElement;
-        const labels = Array.from(select.options).map((o) => o.textContent);
-        expect(labels).toContain('Default microphone');
-        expect(labels).toContain('USB Microphone');
+        expect(select.options[0].textContent).toMatch(/system default/i);
+        expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+            'System default',
+            'USB Mic',
+            'Built-in',
+        ]);
     });
 
-    it('invokes onTestRecording when the test button is clicked', async () => {
-        const onTestRecording = vi.fn();
-        const user = userEvent.setup();
-        render(<SettingsRecording devices={devices} onTestRecording={onTestRecording} />);
-        await user.click(screen.getByRole('button', { name: /test recording/i }));
-        expect(onTestRecording).toHaveBeenCalledTimes(1);
+    it('persists the selected mic on change', async () => {
+        render(<SettingsRecording />);
+        await waitFor(() => screen.getByLabelText(/microphone/i));
+        const select = screen.getByLabelText(/microphone/i) as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: 'usb' } });
+        await waitFor(() => {
+            expect(setSelectedMicDeviceIdMock).toHaveBeenCalledWith('usb');
+        });
     });
 
-    it('invokes onHotkeyChange when the hotkey input is updated', async () => {
-        const onHotkeyChange = vi.fn();
-        const user = userEvent.setup();
-        render(
-            <SettingsRecording
-                devices={devices}
-                hotkey="Cmd+Shift+Space"
-                onHotkeyChange={onHotkeyChange}
-            />,
+    it('persists null when System default is chosen', async () => {
+        getSelectedMicDeviceIdMock.mockResolvedValueOnce('usb');
+        render(<SettingsRecording />);
+        await waitFor(() => screen.getByLabelText(/microphone/i));
+        const select = screen.getByLabelText(/microphone/i) as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: '' } });
+        await waitFor(() => {
+            expect(setSelectedMicDeviceIdMock).toHaveBeenCalledWith(null);
+        });
+    });
+
+    it('persists + registers a new hotkey when the user captures one', async () => {
+        render(<SettingsRecording />);
+        await waitFor(() => screen.getByLabelText(/microphone/i));
+        fireEvent.click(screen.getByRole('button', { name: /capture/i }));
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'A', code: 'KeyA', metaKey: true, shiftKey: true }),
         );
-        const input = screen.getByLabelText(/hotkey/i) as HTMLInputElement;
-        await user.clear(input);
-        await user.type(input, 'Ctrl+Alt+R');
-        expect(onHotkeyChange).toHaveBeenLastCalledWith('Ctrl+Alt+R');
+        await waitFor(() => {
+            expect(setHotkeyComboMock).toHaveBeenCalledWith('Cmd+Shift+A');
+            expect(voxMock.registerHotkey).toHaveBeenCalledWith('Cmd+Shift+A');
+        });
     });
 });

@@ -8,6 +8,21 @@ vi.mock('@/lib/db', () => ({
     getActiveModelConfigId: vi.fn(async () => null),
     getOverlayEnabled: vi.fn(async () => true),
     setOverlayEnabled: vi.fn(async () => undefined),
+    listTranscriptions: vi.fn(async () => []),
+    getSelectedMicDeviceId: vi.fn(async () => null),
+    setSelectedMicDeviceId: vi.fn(async () => undefined),
+    getHotkeyCombo: vi.fn(async () => 'Cmd+Shift+Space'),
+    setHotkeyCombo: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/lib/invoke', () => ({
+    vox: {
+        listAudioInputDevices: vi.fn(async () => []),
+        startRecording: vi.fn(async () => 'session-id'),
+        stopRecording: vi.fn(async () => []),
+        registerHotkey: vi.fn(async () => 'Cmd+Shift+Space'),
+        unregisterHotkey: vi.fn(async () => undefined),
+    },
 }));
 
 vi.mock('@/lib/overlay-bridge', () => ({
