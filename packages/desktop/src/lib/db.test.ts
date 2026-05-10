@@ -23,6 +23,7 @@ import {
     deleteModelConfig,
     getActiveModelConfigId,
     getHistoryLastSweep,
+    getHistoryStats,
     getHotkeyCombo,
     getModelConfigWithApiKey,
     getOverlayEnabled,
@@ -530,5 +531,46 @@ describe('db.purgeOlderThan', () => {
         expect(result.softDeleted).toBe(0);
         expect(fakeDb.execute.mock.calls).toHaveLength(1);
         expect(fakeDb.execute.mock.calls[0]?.[0]).toMatch(/DELETE FROM transcriptions/i);
+    });
+});
+
+describe('db.getHistoryStats', () => {
+    it('aggregates total words, avg WPM, time saved, top provider', async () => {
+        // 3 rows: 10 words / 30s, 20 words / 60s, 30 words / 90s
+        fakeDb.select.mockResolvedValueOnce([
+            { provider_id: 'openai', word_count: 10, duration_ms: 30000, created_at: Date.now() },
+            {
+                provider_id: 'openai',
+                word_count: 20,
+                duration_ms: 60000,
+                created_at: Date.now() - 86400_000,
+            },
+            {
+                provider_id: 'groq',
+                word_count: 30,
+                duration_ms: 90000,
+                created_at: Date.now() - 2 * 86400_000,
+            },
+        ]);
+        const stats = await getHistoryStats('all');
+        expect(stats.totalWords).toBe(60);
+        // total 180s = 3 min, total words 60. WPM = 60 / 3 = 20.
+        expect(stats.avgWPM).toBeCloseTo(20, 1);
+        // 60/45 - 3 = 1.33 - 3 = -1.66 → clamped to 0
+        expect(stats.timeSavedMinutes).toBe(0);
+        // openai has 2 rows, groq has 1
+        expect(stats.topProvider).toBe('openai');
+        // 3 consecutive days ending today
+        expect(stats.streakDays).toBe(3);
+    });
+
+    it('returns zero/null on empty', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        const stats = await getHistoryStats('all');
+        expect(stats.totalWords).toBe(0);
+        expect(stats.avgWPM).toBeNull();
+        expect(stats.streakDays).toBe(0);
+        expect(stats.timeSavedMinutes).toBe(0);
+        expect(stats.topProvider).toBeNull();
     });
 });

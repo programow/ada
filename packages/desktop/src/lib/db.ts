@@ -438,3 +438,92 @@ export async function purgeOlderThan(
     )) as { rowsAffected: number };
     return { softDeleted, hardDeleted: r.rowsAffected };
 }
+
+export interface HistoryStats {
+    totalWords: number;
+    streakDays: number;
+    avgWPM: number | null;
+    timeSavedMinutes: number;
+    topProvider: string | null;
+}
+
+export type HistoryStatsRange = 'week' | 'month' | 'all';
+
+interface RawStatsRow {
+    provider_id: string;
+    word_count: number;
+    duration_ms: number;
+    created_at: number;
+}
+
+function rangeStartMs(range: HistoryStatsRange, now: number): number | null {
+    const day = 24 * 60 * 60 * 1000;
+    if (range === 'week') return now - 7 * day;
+    if (range === 'month') return now - 30 * day;
+    return null;
+}
+
+function computeStreakDays(rows: RawStatsRow[], now: number): number {
+    if (rows.length === 0) return 0;
+    const day = 24 * 60 * 60 * 1000;
+    const startOfDay = (ms: number) => {
+        const d = new Date(ms);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+    };
+    const today = startOfDay(now);
+    const days = new Set<number>(rows.map((r) => startOfDay(r.created_at)));
+    let streak = 0;
+    let cursor = today;
+    while (days.has(cursor)) {
+        streak++;
+        cursor -= day;
+    }
+    return streak;
+}
+
+export async function getHistoryStats(range: HistoryStatsRange): Promise<HistoryStats> {
+    const conn = await db();
+    const now = Date.now();
+    const start = rangeStartMs(range, now);
+    const rows = (await conn.select(
+        start === null
+            ? 'SELECT provider_id, word_count, duration_ms, created_at FROM transcriptions WHERE deleted_at IS NULL'
+            : 'SELECT provider_id, word_count, duration_ms, created_at FROM transcriptions WHERE deleted_at IS NULL AND created_at >= ?',
+        start === null ? [] : [start],
+    )) as RawStatsRow[];
+    if (rows.length === 0) {
+        return {
+            totalWords: 0,
+            streakDays: 0,
+            avgWPM: null,
+            timeSavedMinutes: 0,
+            topProvider: null,
+        };
+    }
+    const totalWords = rows.reduce((a, r) => a + r.word_count, 0);
+    const totalMs = rows.reduce((a, r) => a + r.duration_ms, 0);
+    const totalMinutes = totalMs / 60000;
+    const avgWPM = totalMs > 0 ? totalWords / totalMinutes : null;
+    const typingMinutes = totalWords / 45;
+    const timeSavedMinutes = Math.max(0, typingMinutes - totalMinutes);
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+        counts.set(r.provider_id, (counts.get(r.provider_id) ?? 0) + 1);
+    }
+    let topProvider: string | null = null;
+    let topCount = 0;
+    for (const [p, c] of counts) {
+        if (c > topCount) {
+            topProvider = p;
+            topCount = c;
+        }
+    }
+    return {
+        totalWords,
+        streakDays: computeStreakDays(rows, now),
+        avgWPM,
+        timeSavedMinutes,
+        topProvider,
+    };
+}
