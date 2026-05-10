@@ -66,9 +66,7 @@ export function MainWindow() {
                     <TabsTrigger value="about">About</TabsTrigger>
                 </TabsList>
                 <TabsContent value="dashboard" data-testid="panel-dashboard">
-                    <div className="opacity-60">
-                        <Dashboard stats={null} />
-                    </div>
+                    <Dashboard />
                 </TabsContent>
                 <TabsContent value="history" data-testid="panel-history">
                     <History entries={historyEntries} />

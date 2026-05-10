@@ -1,88 +1,52 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-export interface DashboardStats {
-    totalWords: number;
-    streakDays: number;
-    averageWpm: number;
-    timeSavedMinutes: number;
-    topProvider: string;
-    topModel: string;
-    estimatedCostUSD: number;
-}
+import { type HistoryStats, getHistoryStats } from '@/lib/db';
+import { useEffect, useState } from 'react';
 
 export interface DashboardProps {
-    stats: DashboardStats | null;
+    /** When recordingState transitions to idle, the parent can bump this prop
+     * to force a stats refetch. Defaults to 0 (no auto-refetch). */
+    refreshKey?: number;
 }
 
-const DASH = '—';
-
-function formatNumber(value: number | undefined): string {
-    if (value === undefined) return DASH;
-    return value.toLocaleString('en-US');
-}
-
-function formatCost(value: number | undefined): string {
-    if (value === undefined) return DASH;
-    return `$${value.toFixed(2)}`;
-}
-
-function formatString(value: string | undefined): string {
-    if (!value) return DASH;
-    return value;
-}
-
-export function Dashboard({ stats }: DashboardProps) {
-    const s = stats ?? undefined;
+function Stat({ label, value }: { label: string; value: string }) {
     return (
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Total Words</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-total-words">
-                    {formatNumber(s?.totalWords)}
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Streak (days)</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-streak">{formatNumber(s?.streakDays)}</CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Average WPM</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-wpm">{formatNumber(s?.averageWpm)}</CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Time saved (min)</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-time-saved">
-                    {formatNumber(s?.timeSavedMinutes)}
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Top Provider</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-top-provider">
-                    {formatString(s?.topProvider)}
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Top Model</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-top-model">{formatString(s?.topModel)}</CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Estimated Cost</CardTitle>
-                </CardHeader>
-                <CardContent data-testid="stat-cost">{formatCost(s?.estimatedCostUSD)}</CardContent>
-            </Card>
-        </section>
+        <Card>
+            <CardHeader className="pb-1">
+                <CardTitle className="text-xs uppercase tracking-widest">{label}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-extrabold">{value}</CardContent>
+        </Card>
+    );
+}
+
+export function Dashboard({ refreshKey = 0 }: DashboardProps) {
+    const [stats, setStats] = useState<HistoryStats | null>(null);
+
+    useEffect(() => {
+        // Reference refreshKey so biome sees it as used; bumping it re-fetches.
+        void refreshKey;
+        let cancelled = false;
+        void getHistoryStats('all').then((s) => {
+            if (!cancelled) setStats(s);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [refreshKey]);
+
+    const totalWords = stats ? stats.totalWords.toLocaleString() : '—';
+    const streakDays = stats ? String(stats.streakDays) : '—';
+    const avgWPM = stats?.avgWPM != null ? stats.avgWPM.toFixed(1) : '—';
+    const timeSaved = stats ? `${stats.timeSavedMinutes.toFixed(1)} min` : '—';
+    const topProvider = stats?.topProvider ?? '—';
+
+    return (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <Stat label="Total words" value={totalWords} />
+            <Stat label="Streak (days)" value={streakDays} />
+            <Stat label="Avg WPM" value={avgWPM} />
+            <Stat label="Time saved" value={timeSaved} />
+            <Stat label="Top provider" value={topProvider} />
+        </div>
     );
 }

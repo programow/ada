@@ -17,6 +17,13 @@ vi.mock('@/lib/db', () => ({
     setRetentionDays: vi.fn(async () => undefined),
     purgeOlderThan: vi.fn(async () => ({ softDeleted: 0, hardDeleted: 0 })),
     clearAllTranscriptions: vi.fn(async () => ({ deleted: 0 })),
+    getHistoryStats: vi.fn(async () => ({
+        totalWords: 0,
+        streakDays: 0,
+        avgWPM: null,
+        timeSavedMinutes: 0,
+        topProvider: null,
+    })),
 }));
 
 vi.mock('@/lib/invoke', () => ({

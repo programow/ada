@@ -1,32 +1,42 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { Dashboard, type DashboardStats } from './Dashboard';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Dashboard } from './Dashboard';
 
-const stats: DashboardStats = {
-    totalWords: 12_345,
-    streakDays: 7,
-    averageWpm: 142,
-    timeSavedMinutes: 96,
-    topProvider: 'OpenAI',
-    topModel: 'whisper-1',
-    estimatedCostUSD: 1.23,
-};
+vi.mock('@/lib/db', () => ({
+    getHistoryStats: vi.fn(),
+}));
 
-describe('<Dashboard />', () => {
-    it('renders all stat cards with the supplied values', () => {
-        render(<Dashboard stats={stats} />);
-        expect(screen.getByTestId('stat-total-words')).toHaveTextContent('12,345');
-        expect(screen.getByTestId('stat-streak')).toHaveTextContent('7');
-        expect(screen.getByTestId('stat-wpm')).toHaveTextContent('142');
-        expect(screen.getByTestId('stat-time-saved')).toHaveTextContent('96');
-        expect(screen.getByTestId('stat-top-provider')).toHaveTextContent('OpenAI');
-        expect(screen.getByTestId('stat-top-model')).toHaveTextContent('whisper-1');
-        expect(screen.getByTestId('stat-cost')).toHaveTextContent('$1.23');
+import { getHistoryStats } from '@/lib/db';
+
+beforeEach(() => {
+    vi.mocked(getHistoryStats).mockResolvedValue({
+        totalWords: 1234,
+        streakDays: 5,
+        avgWPM: 42.5,
+        timeSavedMinutes: 12.3,
+        topProvider: 'openai',
+    });
+});
+
+describe('Dashboard', () => {
+    it('renders five stat cards from getHistoryStats', async () => {
+        render(<Dashboard />);
+        await waitFor(() => expect(screen.getByText('1,234')).toBeInTheDocument());
+        expect(screen.getByText('5')).toBeInTheDocument();
+        expect(screen.getByText(/42\.5/)).toBeInTheDocument();
+        expect(screen.getByText(/12\.3/)).toBeInTheDocument();
+        expect(screen.getByText('openai')).toBeInTheDocument();
     });
 
-    it('shows a placeholder dash when stats are not yet available', () => {
-        render(<Dashboard stats={null} />);
-        expect(screen.getByTestId('stat-total-words')).toHaveTextContent('—');
-        expect(screen.getByTestId('stat-top-provider')).toHaveTextContent('—');
+    it('renders — placeholders when stats are null', async () => {
+        vi.mocked(getHistoryStats).mockResolvedValueOnce({
+            totalWords: 0,
+            streakDays: 0,
+            avgWPM: null,
+            timeSavedMinutes: 0,
+            topProvider: null,
+        });
+        render(<Dashboard />);
+        await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThan(0));
     });
 });
