@@ -37,7 +37,13 @@ pub struct CaptureSession {
 pub trait AudioSource: Send + Sync {
     fn check_permission(&self) -> PermissionState;
     fn request_permission(&self) -> Result<PermissionState, AudioError>;
-    fn start_capture(&self) -> Result<CaptureSession, AudioError>;
+    fn start_capture(&self) -> Result<CaptureSession, AudioError> {
+        self.start_capture_with_device(None)
+    }
+    fn start_capture_with_device(
+        &self,
+        device_id: Option<&str>,
+    ) -> Result<CaptureSession, AudioError>;
     fn stop_capture(&self, session: &CaptureSession) -> Result<Vec<u8>, AudioError>;
 }
 

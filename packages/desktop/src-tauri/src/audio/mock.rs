@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub struct MockMicrophoneSource {
     pub permission: Mutex<PermissionState>,
     pub canned_wav: Vec<u8>,
+    pub last_device: Mutex<Option<String>>,
 }
 
 impl MockMicrophoneSource {
@@ -12,7 +13,12 @@ impl MockMicrophoneSource {
         Self {
             permission: Mutex::new(permission),
             canned_wav,
+            last_device: Mutex::new(None),
         }
+    }
+
+    pub fn last_requested_device_id(&self) -> Option<String> {
+        self.last_device.lock().unwrap().clone()
     }
 }
 
@@ -29,7 +35,11 @@ impl AudioSource for MockMicrophoneSource {
         Ok(*p)
     }
 
-    fn start_capture(&self) -> Result<CaptureSession, AudioError> {
+    fn start_capture_with_device(
+        &self,
+        device_id: Option<&str>,
+    ) -> Result<CaptureSession, AudioError> {
+        *self.last_device.lock().unwrap() = device_id.map(str::to_string);
         if self.check_permission() != PermissionState::Granted {
             return Err(AudioError::PermissionDenied);
         }
@@ -65,5 +75,20 @@ mod tests {
         let mock = MockMicrophoneSource::new(PermissionState::NotDetermined, vec![]);
         let p = mock.request_permission().unwrap();
         assert_eq!(p, PermissionState::Granted);
+    }
+
+    #[test]
+    fn start_capture_with_device_routes_to_default_when_none() {
+        let m = MockMicrophoneSource::new(PermissionState::Granted, b"abc".to_vec());
+        let s = m.start_capture_with_device(None).unwrap();
+        let bytes = m.stop_capture(&s).unwrap();
+        assert_eq!(bytes, b"abc");
+    }
+
+    #[test]
+    fn start_capture_with_device_records_requested_id() {
+        let m = MockMicrophoneSource::new(PermissionState::Granted, b"abc".to_vec());
+        let _ = m.start_capture_with_device(Some("USB Mic")).unwrap();
+        assert_eq!(m.last_requested_device_id(), Some("USB Mic".to_string()));
     }
 }

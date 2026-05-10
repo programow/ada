@@ -70,7 +70,10 @@ impl AudioSource for MicrophoneSource {
         super::permissions::request_microphone_permission()
     }
 
-    fn start_capture(&self) -> Result<CaptureSession, AudioError> {
+    fn start_capture_with_device(
+        &self,
+        device_id: Option<&str>,
+    ) -> Result<CaptureSession, AudioError> {
         let id = Uuid::new_v4();
         let samples: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(Vec::new()));
         let samples_for_worker = samples.clone();
@@ -79,17 +82,42 @@ impl AudioSource for MicrophoneSource {
         // negotiated sample rate before it parks waiting for `stop_rx`.
         let (ready_tx, ready_rx) = mpsc::channel::<Result<u32, AudioError>>();
 
+        let device_id_owned: Option<String> = device_id.map(str::to_string);
         let worker = thread::Builder::new()
             .name(format!("voxera-mic-{id}"))
             .spawn(move || {
                 let host = cpal::default_host();
-                let device = match host.default_input_device() {
-                    Some(d) => d,
-                    None => {
-                        let _ = ready_tx.send(Err(AudioError::DeviceUnavailable(
-                            "no default input device".into(),
-                        )));
-                        return;
+                let device = match device_id_owned.as_deref() {
+                    None => match host.default_input_device() {
+                        Some(d) => d,
+                        None => {
+                            let _ = ready_tx.send(Err(AudioError::DeviceUnavailable(
+                                "system default".into(),
+                            )));
+                            return;
+                        }
+                    },
+                    Some(name) => {
+                        let mut devices = match host.input_devices() {
+                            Ok(d) => d,
+                            Err(e) => {
+                                let _ = ready_tx.send(Err(AudioError::DeviceUnavailable(
+                                    e.to_string(),
+                                )));
+                                return;
+                            }
+                        };
+                        let found =
+                            devices.find(|d| d.name().map(|n| n == name).unwrap_or(false));
+                        match found {
+                            Some(d) => d,
+                            None => {
+                                let _ = ready_tx.send(Err(AudioError::DeviceUnavailable(
+                                    name.to_string(),
+                                )));
+                                return;
+                            }
+                        }
                     }
                 };
                 let config = match device.default_input_config() {

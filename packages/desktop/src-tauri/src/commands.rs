@@ -51,8 +51,14 @@ pub fn open_settings_panel(panel: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn start_recording(state: State<'_, AppState>) -> Result<String, String> {
-    let session = state.audio.start_capture().map_err(|e| e.to_string())?;
+pub fn start_recording(
+    state: State<'_, AppState>,
+    device_id: Option<String>,
+) -> Result<String, String> {
+    let session = state
+        .audio
+        .start_capture_with_device(device_id.as_deref())
+        .map_err(|e| e.to_string())?;
     Ok(session.id.to_string())
 }
 
