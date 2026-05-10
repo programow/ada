@@ -1,4 +1,10 @@
-import { getHotkeyCombo } from '@/lib/db';
+import {
+    getHistoryLastSweep,
+    getHotkeyCombo,
+    getRetentionDays,
+    purgeOlderThan,
+    setHistoryLastSweep,
+} from '@/lib/db';
 import { vox } from '@/lib/invoke';
 import { useEffect } from 'react';
 import { MainWindow } from './windows/main/MainWindow';
@@ -19,6 +25,32 @@ export default function App() {
                 console.error('initial registerHotkey failed', e);
             }
         })();
+    }, [isMain]);
+
+    useEffect(() => {
+        if (!isMain) return;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let cancelled = false;
+
+        async function runSweep() {
+            const days = await getRetentionDays();
+            const last = await getHistoryLastSweep();
+            const now = Date.now();
+            const dayMs = 24 * 60 * 60 * 1000;
+            if (last == null || now - last >= dayMs) {
+                await purgeOlderThan(days);
+                await setHistoryLastSweep(now);
+            }
+            if (cancelled) return;
+            const nextDelay = Math.max(60_000, dayMs - (now - (last ?? now)));
+            timer = setTimeout(() => void runSweep(), nextDelay);
+        }
+
+        void runSweep();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
     }, [isMain]);
 
     if (!isMain) {
