@@ -21,15 +21,19 @@ import {
     deleteApiKey,
     deleteModelConfig,
     getActiveModelConfigId,
+    getHotkeyCombo,
     getModelConfigWithApiKey,
     getOverlayEnabled,
     getOverlayPosition,
+    getSelectedMicDeviceId,
     listApiKeys,
     listModelConfigDependencies,
     listModelConfigs,
     setActiveModelConfigId,
+    setHotkeyCombo,
     setOverlayEnabled,
     setOverlayPosition,
+    setSelectedMicDeviceId,
 } from './db';
 
 beforeEach(() => {
@@ -380,5 +384,43 @@ describe('db.getModelConfigWithApiKey', () => {
             providerId: 'openai',
             apiKeyNickname: 'Personal',
         });
+    });
+});
+
+describe('db.selectedMicDeviceId', () => {
+    it('returns null when not set', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        await expect(getSelectedMicDeviceId()).resolves.toBeNull();
+    });
+    it('returns the persisted value', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: 'USB Mic' }]);
+        await expect(getSelectedMicDeviceId()).resolves.toBe('USB Mic');
+    });
+    it('persists null by deleting the row', async () => {
+        await setSelectedMicDeviceId(null);
+        const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
+        expect(calls.some((s) => /DELETE FROM app_state/i.test(s))).toBe(true);
+    });
+    it('persists a value via upsert', async () => {
+        await setSelectedMicDeviceId('USB Mic');
+        const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
+        expect(calls.some((s) => /INSERT INTO app_state/i.test(s))).toBe(true);
+    });
+});
+
+describe('db.hotkeyCombo', () => {
+    it('returns the platform default when not set', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        const combo = await getHotkeyCombo();
+        expect(combo === 'Cmd+Shift+Space' || combo === 'Ctrl+Shift+Space').toBe(true);
+    });
+    it('returns the persisted combo', async () => {
+        fakeDb.select.mockResolvedValueOnce([{ value: 'Cmd+Alt+R' }]);
+        await expect(getHotkeyCombo()).resolves.toBe('Cmd+Alt+R');
+    });
+    it('persists via upsert', async () => {
+        await setHotkeyCombo('Cmd+Alt+R');
+        const calls = fakeDb.execute.mock.calls.map((c) => c[0]);
+        expect(calls.some((s) => /INSERT INTO app_state/i.test(s))).toBe(true);
     });
 });

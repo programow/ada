@@ -6,6 +6,8 @@ const ACTIVE_MODEL_CONFIG_KEY = 'active_model_config_id';
 const OVERLAY_ENABLED_KEY = 'overlay_enabled';
 const OVERLAY_X_KEY = 'overlay_x';
 const OVERLAY_Y_KEY = 'overlay_y';
+const SELECTED_MIC_DEVICE_KEY = 'selected_mic_device_id';
+const HOTKEY_COMBO_KEY = 'hotkey_combo';
 
 export interface ApiKeyRow {
     id: string;
@@ -252,6 +254,48 @@ export async function getModelConfigWithApiKey(id: string): Promise<ModelConfigW
         id,
     ])) as RawModelConfigJoined[];
     return rows[0] ? mapModelConfig(rows[0]) : null;
+}
+
+export async function getSelectedMicDeviceId(): Promise<string | null> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        SELECTED_MIC_DEVICE_KEY,
+    ])) as { value: string }[];
+    return rows[0]?.value ?? null;
+}
+
+export async function setSelectedMicDeviceId(id: string | null): Promise<void> {
+    const conn = await db();
+    if (id === null) {
+        await conn.execute('DELETE FROM app_state WHERE key = ?', [SELECTED_MIC_DEVICE_KEY]);
+        return;
+    }
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [SELECTED_MIC_DEVICE_KEY, id],
+    );
+}
+
+function defaultHotkeyCombo(): string {
+    // Detect macOS without DOM (in tests we are happy-dom; this branch is taken).
+    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform);
+    return isMac ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
+}
+
+export async function getHotkeyCombo(): Promise<string> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        HOTKEY_COMBO_KEY,
+    ])) as { value: string }[];
+    return rows[0]?.value ?? defaultHotkeyCombo();
+}
+
+export async function setHotkeyCombo(combo: string): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [HOTKEY_COMBO_KEY, combo],
+    );
 }
 
 function countWords(text: string): number {
