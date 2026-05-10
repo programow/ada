@@ -15,11 +15,13 @@ pub enum SecretsError {
     Other(String),
 }
 
+/// Cross-platform credential store. The first parameter is opaque — callers
+/// pass any stable string (now an api_key UUID) and the trait simply uses it
+/// as the keychain account name.
 pub trait Vault: Send + Sync {
-    fn get(&self, provider_id: &str) -> Result<Option<Zeroizing<String>>, SecretsError>;
-    fn set(&self, provider_id: &str, key: &str) -> Result<(), SecretsError>;
-    fn delete(&self, provider_id: &str) -> Result<(), SecretsError>;
-    fn list_configured(&self) -> Result<Vec<String>, SecretsError>;
+    fn get(&self, secret_id: &str) -> Result<Option<Zeroizing<String>>, SecretsError>;
+    fn set(&self, secret_id: &str, key: &str) -> Result<(), SecretsError>;
+    fn delete(&self, secret_id: &str) -> Result<(), SecretsError>;
 }
 
 #[derive(Clone)]
@@ -74,16 +76,6 @@ mod tests {
         v.set("openai", "sk-x").unwrap();
         v.delete("openai").unwrap();
         assert!(v.get("openai").unwrap().is_none());
-    }
-
-    #[test]
-    fn list_configured_returns_all_provider_ids() {
-        let v = InMemoryVault::new();
-        v.set("openai", "sk-1").unwrap();
-        v.set("groq", "gsk-1").unwrap();
-        let mut ids = v.list_configured().unwrap();
-        ids.sort();
-        assert_eq!(ids, vec!["groq".to_string(), "openai".to_string()]);
     }
 
     #[test]

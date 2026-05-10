@@ -1,6 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/db', () => ({
+    listApiKeys: vi.fn(async () => []),
+    listModelConfigs: vi.fn(async () => []),
+    getActiveModelConfigId: vi.fn(async () => null),
+}));
+
+vi.mock('@tauri-apps/api/event', () => ({
+    listen: vi.fn(async () => () => undefined),
+}));
+
 import { MainWindow } from './MainWindow';
 
 describe('<MainWindow />', () => {

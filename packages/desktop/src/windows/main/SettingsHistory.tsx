@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ComingSoonBadge } from '@/components/ui/coming-soon-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useId, useState } from 'react';
@@ -13,9 +14,10 @@ export function SettingsHistory({ onClear }: SettingsHistoryProps = {}) {
     const [retainDays, setRetainDays] = useState('90');
 
     return (
-        <Card>
-            <CardHeader>
+        <Card className="opacity-60" data-coming-soon="true">
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>History</CardTitle>
+                <ComingSoonBadge />
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm font-medium normal-case">
                 <div className="flex flex-col gap-1">

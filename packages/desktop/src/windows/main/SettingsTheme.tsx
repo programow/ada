@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ComingSoonBadge } from '@/components/ui/coming-soon-badge';
 import { useState } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -17,9 +18,10 @@ const OPTIONS: { value: Theme; label: string }[] = [
 export function SettingsTheme({ value = 'system', onChange }: SettingsThemeProps = {}) {
     const [theme, setTheme] = useState<Theme>(value);
     return (
-        <Card>
-            <CardHeader>
+        <Card className="opacity-60" data-coming-soon="true">
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Theme</CardTitle>
+                <ComingSoonBadge />
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-sm font-medium normal-case">
                 {OPTIONS.map((opt) => (
