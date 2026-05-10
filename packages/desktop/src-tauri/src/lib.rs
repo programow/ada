@@ -2,6 +2,8 @@ pub mod audio;
 pub mod clipboard;
 pub mod commands;
 pub mod history;
+#[cfg(target_os = "macos")]
+pub mod overlay_panel;
 pub mod paste;
 pub mod secrets;
 pub mod settings;
@@ -67,6 +69,16 @@ pub fn run() {
             app.manage(app_state);
 
             tray::build(app.handle())?;
+
+            // macOS: convert the overlay window to a non-activating NSPanel
+            // so clicks on the Stop button / drag handle don't yank focus
+            // away from whatever app the user is dictating into.
+            #[cfg(target_os = "macos")]
+            if let Some(overlay_window) = app.get_webview_window("overlay") {
+                if let Err(e) = overlay_panel::make_overlay_nonactivating(&overlay_window) {
+                    log::warn!("overlay panel conversion failed: {e}");
+                }
+            }
 
             // Tray-resident behaviour: closing the main window hides it and
             // (on macOS) hides the Dock icon, instead of quitting the app.
