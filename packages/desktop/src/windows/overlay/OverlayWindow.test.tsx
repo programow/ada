@@ -87,8 +87,8 @@ describe('<OverlayWindow />', () => {
     });
 
     it('activates bars whose threshold the level has crossed', () => {
-        render(<OverlayWindow state={{ kind: 'recording' }} level={0.55} />);
-        // Thresholds are 0.1, 0.3, 0.5, 0.7 — 0.55 crosses the first three.
+        render(<OverlayWindow state={{ kind: 'recording' }} level={0.07} />);
+        // Thresholds are 0.008, 0.025, 0.05, 0.1 — 0.07 crosses the first three.
         expect(screen.getByTestId('overlay-waveform-bar-0')).toHaveAttribute('data-active', 'true');
         expect(screen.getByTestId('overlay-waveform-bar-1')).toHaveAttribute('data-active', 'true');
         expect(screen.getByTestId('overlay-waveform-bar-2')).toHaveAttribute('data-active', 'true');

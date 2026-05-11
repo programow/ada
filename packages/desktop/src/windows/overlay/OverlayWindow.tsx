@@ -67,7 +67,9 @@ function clampLevel(level: number): number {
 function RecordingDot({ level }: { level: number }) {
     // Subtle scale tied to level keeps the dot visually anchored to the
     // bars; cap the boost so the dot can't bloom past the pill height.
-    const scale = 1 + clampLevel(level) * 0.4;
+    // Mapped against BAR_MAX_LEVEL so it tracks the bars at typical voice
+    // amplitudes instead of needing a shout to react.
+    const scale = 1 + Math.min(1, clampLevel(level) / BAR_MAX_LEVEL) * 0.4;
     return (
         <span
             aria-hidden="true"
@@ -82,15 +84,25 @@ function RecordingDot({ level }: { level: number }) {
 // height is then proportional to how far past the threshold the level
 // has gone, clamped to BAR_MAX_PX. Below the threshold the bar stays at
 // BAR_MIN_PX so the pill never looks empty.
-const BAR_THRESHOLDS = [0.1, 0.3, 0.5, 0.7] as const;
+//
+// Thresholds are calibrated against typical conversational speech peaks
+// (~0.05–0.20 in the cpal RMS-of-mono signal): the lowest bar reacts to
+// any audible voice, and a slightly raised voice lights all four. The
+// previous calibration (0.1/0.3/0.5/0.7) required shouting to fill —
+// useless feedback for someone speaking naturally into a built-in mic.
+const BAR_THRESHOLDS = [0.008, 0.025, 0.05, 0.1] as const;
 const BAR_MIN_PX = 3;
 const BAR_MAX_PX = 14;
+// Level at which a bar reaches BAR_MAX_PX. Built-in mics on real-world
+// laptops peak much lower than studio gear, so the saturation ceiling is
+// kept well below 1.0 — otherwise normal speech only ever fills the bars
+// to ~30% height even when all four are "active".
+const BAR_MAX_LEVEL = 0.18;
 
 function barHeightPx(level: number, threshold: number): number {
     const clamped = clampLevel(level);
     if (clamped <= threshold) return BAR_MIN_PX;
-    // Map (threshold..1] to (BAR_MIN_PX..BAR_MAX_PX].
-    const denom = Math.max(1 - threshold, 0.0001);
+    const denom = Math.max(BAR_MAX_LEVEL - threshold, 0.0001);
     const t = Math.min(1, (clamped - threshold) / denom);
     return BAR_MIN_PX + (BAR_MAX_PX - BAR_MIN_PX) * t;
 }
