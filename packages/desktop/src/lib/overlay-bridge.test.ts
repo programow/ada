@@ -19,6 +19,7 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 }));
 vi.mock('./db', () => ({ getOverlayEnabled: getOverlayEnabledMock }));
 
+import { EVT_SHORTCUT_TOGGLE } from './markers';
 import {
     OVERLAY_POSITION_SETUP_OFF_EVENT,
     OVERLAY_POSITION_SETUP_ON_EVENT,
@@ -198,7 +199,7 @@ describe('resetOverlayPosition', () => {
 describe('requestRecordingToggle', () => {
     it('emits the same event the OS hotkey fires', async () => {
         await requestRecordingToggle();
-        expect(emitMock).toHaveBeenCalledWith('vox-era://shortcut-toggle', null);
+        expect(emitMock).toHaveBeenCalledWith(EVT_SHORTCUT_TOGGLE, null);
     });
 
     it('does not throw if emit fails', async () => {

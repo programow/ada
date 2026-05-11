@@ -1,4 +1,9 @@
 use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState, microphone::MicrophoneSource};
+use crate::markers::{ERR_ACCESSIBILITY_REQUIRED, EVT_SHORTCUT_TOGGLE};
+#[cfg(target_os = "macos")]
+use crate::markers::ERR_INPUT_MONITORING_REQUIRED;
+#[cfg(target_os = "linux")]
+use crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED;
 use crate::paste::Paster;
 use crate::platform::is_wayland_session;
 use crate::secrets::Vault;
@@ -247,10 +252,9 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
             log::warn!(
                 "paste_text: Accessibility permission not granted; keystroke will silently no-op"
             );
-            return Err(
-                "accessibility-required: synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again."
-                    .to_string(),
-            );
+            return Err(format!(
+                "{ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again."
+            ));
         }
     }
     log::info!(
@@ -260,7 +264,7 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
     let result = state.paster.paste_text(&text);
     #[cfg(target_os = "linux")]
     if let Err(ref e) = result {
-        if e.starts_with("wayland-paste-unsupported:") {
+        if e.starts_with(ERR_WAYLAND_PASTE_UNSUPPORTED) {
             log::warn!(
                 "paste_text: Wayland fallback engaged; clipboard write succeeded but synthetic Ctrl+V was skipped"
             );
@@ -300,7 +304,7 @@ pub fn register_hotkey(
     app.global_shortcut()
         .on_shortcut(shortcut, move |_, _, event| {
             if event.state() == ShortcutState::Pressed {
-                let _ = app_clone.emit("vox-era://shortcut-toggle", ());
+                let _ = app_clone.emit(EVT_SHORTCUT_TOGGLE, ());
             }
         })
         .map_err(|e| e.to_string())?;
@@ -328,20 +332,20 @@ fn register_fn_hotkey(
     }
     let app_clone = app.clone();
     let tap = Arc::new(MacOsFnTap::new(move || {
-        let _ = app_clone.emit("vox-era://shortcut-toggle", ());
+        let _ = app_clone.emit(EVT_SHORTCUT_TOGGLE, ());
     }));
     tap.register(HotkeyCombo::Fn).map_err(|e| match e {
         crate::shortcut::ShortcutError::InputMonitoringRequired => {
             // TCC changes do NOT propagate to a running process. The user
             // must quit and reopen after toggling the switch, otherwise the
             // tap will keep failing even though Settings shows "on".
-            "input-monitoring-required: grant Vox Era in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app".to_string()
+            format!("{ERR_INPUT_MONITORING_REQUIRED} grant Vox Era in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app")
         }
         crate::shortcut::ShortcutError::AccessibilityRequired => {
             // Defensive: the Fn tap should never surface this variant any
             // more, but if a future backend path does we still want a sane
             // message. Paste uses Accessibility — hence the wording.
-            "accessibility-required: grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again".to_string()
+            format!("{ERR_ACCESSIBILITY_REQUIRED} grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again")
         }
         other => other.to_string(),
     })?;

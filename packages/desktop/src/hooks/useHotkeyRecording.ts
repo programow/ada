@@ -1,11 +1,15 @@
 import { vox } from '@/lib/invoke';
+import { EVT_SHORTCUT_TOGGLE } from '@/lib/markers';
 import { publishRecordingState } from '@/lib/overlay-bridge';
 import { type RecordingDeps, type RecordingState, toggle } from '@/lib/recording-controller';
 import { transcribe } from '@/lib/transcribe';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useRef, useState } from 'react';
 
-export const SHORTCUT_EVENT = 'vox-era://shortcut-toggle';
+// Re-exported under the historical name so existing test imports keep working.
+// The single source of truth lives in `@/lib/markers` — do not introduce a
+// second copy of this string.
+export const SHORTCUT_EVENT = EVT_SHORTCUT_TOGGLE;
 
 const defaultDeps: RecordingDeps = { vox, transcribe };
 

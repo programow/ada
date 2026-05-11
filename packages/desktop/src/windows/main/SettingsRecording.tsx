@@ -12,6 +12,7 @@ import {
     setSelectedMicDeviceId,
 } from '@/lib/db';
 import { type AudioDeviceInfo, vox } from '@/lib/invoke';
+import { ERR_ACCESSIBILITY_REQUIRED } from '@/lib/markers';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 const FN_USAGE_LABEL: Record<number, string> = {
@@ -96,7 +97,7 @@ export function SettingsRecording() {
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             console.error('register_hotkey failed', e);
-            if (msg.includes('accessibility-required')) {
+            if (msg.includes(ERR_ACCESSIBILITY_REQUIRED)) {
                 setHotkeyError(
                     'Fn key needs Accessibility permission. Click Open Settings, grant Vox Era, then choose Use Fn again.',
                 );

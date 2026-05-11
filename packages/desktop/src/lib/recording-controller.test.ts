@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    ERR_ACCESSIBILITY_REQUIRED,
+    ERR_MIC_DENIED,
+    ERR_WAYLAND_PASTE_UNSUPPORTED,
+} from './markers';
+import {
     type RecordingDeps,
     type RecordingState,
     type SetState,
@@ -77,7 +82,7 @@ describe('recording-controller toggle', () => {
             expect(deps.vox.startRecording).not.toHaveBeenCalled();
             const last = states.at(-1);
             expect(last?.kind).toBe('error');
-            if (last?.kind === 'error') expect(last.message).toMatch(/^mic-denied:/);
+            if (last?.kind === 'error') expect(last.message.startsWith(ERR_MIC_DENIED)).toBe(true);
         });
 
         it('publishes mic-denied error and does NOT request when already Denied', async () => {
@@ -89,7 +94,7 @@ describe('recording-controller toggle', () => {
             const last = states.at(-1);
             expect(last?.kind).toBe('error');
             if (last?.kind === 'error') {
-                expect(last.message).toMatch(/^mic-denied:/);
+                expect(last.message.startsWith(ERR_MIC_DENIED)).toBe(true);
                 expect(last.message).toMatch(/System Settings/);
             }
         });
@@ -151,7 +156,7 @@ describe('recording-controller toggle', () => {
         it('surfaces a Wayland-specific friendly message when paste returns wayland-paste-unsupported', async () => {
             vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
                 new Error(
-                    'wayland-paste-unsupported: Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.',
+                    `${ERR_WAYLAND_PASTE_UNSUPPORTED} Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.`,
                 ),
             );
             const { setState, states } = makeSetState();
@@ -170,7 +175,7 @@ describe('recording-controller toggle', () => {
         it('surfaces an Accessibility-specific friendly message when paste returns accessibility-required', async () => {
             vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
                 new Error(
-                    'accessibility-required: synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.',
+                    `${ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.`,
                 ),
             );
             const { setState, states } = makeSetState();

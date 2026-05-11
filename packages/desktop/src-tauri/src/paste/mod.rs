@@ -17,9 +17,16 @@ const PBOARD_SETTLE_DELAY: Duration = Duration::from_millis(80);
 /// `enigo`'s X11/XTest backend can't synthesise keystrokes. The webview side
 /// matches on this prefix (see `recording-controller.ts`) and renders a
 /// dedicated "text is on your clipboard" message instead of the generic
-/// paste failure.
+/// paste failure. The marker prefix is centralised in
+/// [`crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED`] so the JS side and the
+/// Rust side cannot drift independently.
 #[cfg(target_os = "linux")]
-const WAYLAND_FALLBACK_ERROR: &str = "wayland-paste-unsupported: Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.";
+fn wayland_fallback_error() -> String {
+    format!(
+        "{} Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.",
+        crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED
+    )
+}
 
 // `is_wayland_session` lives in `crate::platform` so it can be shared with
 // the `get_platform_info` command. The previous in-module copy was moved
@@ -85,7 +92,7 @@ impl<C: Clipboard> Paster for EnigoPaster<C> {
             log::warn!(
                 "paste_text: Wayland session detected; skipping synthetic Ctrl+V (text remains on clipboard)"
             );
-            return Err(WAYLAND_FALLBACK_ERROR.to_string());
+            return Err(wayland_fallback_error());
         }
         // Allow pboard to propagate to other processes before the keystroke.
         sleep(PBOARD_SETTLE_DELAY);
@@ -198,12 +205,13 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     mod linux_wayland {
-        use super::super::WAYLAND_FALLBACK_ERROR;
+        use super::super::wayland_fallback_error;
+        use crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED;
 
         #[test]
         fn wayland_fallback_error_uses_expected_prefix() {
             // The webview matches on this prefix — keep them in sync.
-            assert!(WAYLAND_FALLBACK_ERROR.starts_with("wayland-paste-unsupported:"));
+            assert!(wayland_fallback_error().starts_with(ERR_WAYLAND_PASTE_UNSUPPORTED));
         }
     }
 }

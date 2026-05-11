@@ -1,6 +1,7 @@
 import { emit } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getOverlayEnabled } from './db';
+import { EVT_SHORTCUT_TOGGLE } from './markers';
 import type { RecordingState } from './recording-controller';
 
 export const RECORDING_STATE_EVENT = 'vox-era://recording-state';
@@ -131,19 +132,19 @@ export async function resetOverlayPosition(): Promise<void> {
     }
 }
 
-// Same event the OS-level global shortcut handler fires. Re-using it lets a
-// click in the overlay drive the existing useHotkeyRecording state machine
-// in the main window without a new listener.
-const RECORDING_TOGGLE_EVENT = 'vox-era://shortcut-toggle';
-
 /**
  * Request that the recording state machine toggle (idle→recording or
  * recording→transcribing→idle). Used by the overlay's Stop button so the
  * user can stop with the mouse instead of the hotkey.
+ *
+ * Re-uses the same event the OS-level global shortcut handler fires
+ * (`EVT_SHORTCUT_TOGGLE`) so a click in the overlay drives the existing
+ * `useHotkeyRecording` state machine in the main window without a new
+ * listener — keep the constant centralised in `@/lib/markers` to avoid drift.
  */
 export async function requestRecordingToggle(): Promise<void> {
     try {
-        await emit(RECORDING_TOGGLE_EVENT, null);
+        await emit(EVT_SHORTCUT_TOGGLE, null);
     } catch (e) {
         console.warn('overlay-bridge: requestRecordingToggle failed', e);
     }

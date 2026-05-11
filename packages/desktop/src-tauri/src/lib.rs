@@ -2,6 +2,7 @@ pub mod audio;
 pub mod clipboard;
 pub mod commands;
 pub mod history;
+pub mod markers;
 #[cfg(target_os = "macos")]
 pub mod overlay_panel;
 pub mod paste;

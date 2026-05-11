@@ -1,5 +1,10 @@
 import { getActiveModelConfigId, getModelConfigWithApiKey, saveTranscription } from './db';
 import type { vox as voxApi } from './invoke';
+import {
+    ERR_ACCESSIBILITY_REQUIRED,
+    ERR_MIC_DENIED,
+    ERR_WAYLAND_PASTE_UNSUPPORTED,
+} from './markers';
 import type { transcribe as transcribeFn } from './transcribe';
 
 export type RecordingState =
@@ -50,7 +55,7 @@ async function ensureMicPermission(
     if (state === 'Denied') {
         return {
             ok: false,
-            reason: 'mic-denied: Microphone access is blocked. Open System Settings → Privacy & Security → Microphone and enable Vox Era.',
+            reason: `${ERR_MIC_DENIED} Microphone access is blocked. Open System Settings → Privacy & Security → Microphone and enable Vox Era.`,
         };
     }
     // NotDetermined — trigger the OS prompt now (via AVCaptureDevice.requestAccess
@@ -59,7 +64,7 @@ async function ensureMicPermission(
     if (after === 'Granted') return { ok: true };
     return {
         ok: false,
-        reason: 'mic-denied: Microphone permission was not granted.',
+        reason: `${ERR_MIC_DENIED} Microphone permission was not granted.`,
     };
 }
 
@@ -132,13 +137,14 @@ async function stopAndTranscribe(
 
         if (pasteFailed) {
             // Translate well-known error markers into helpful UI messages.
-            // Marker prefixes are defined Rust-side (see paste/mod.rs and
-            // commands.rs::paste_text) — keep these branches in sync.
+            // Marker prefixes are defined in `@/lib/markers` (mirrored from
+            // `src-tauri/src/markers.rs`) so a Rust rename can't silently
+            // degrade UX — the contract test enforces agreement.
             let friendly: string;
-            if (pasteFailed.includes('accessibility-required')) {
+            if (pasteFailed.includes(ERR_ACCESSIBILITY_REQUIRED)) {
                 friendly =
                     "Couldn't paste — Vox Era needs Accessibility permission. Text is on your clipboard; press Cmd+V to paste manually. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.";
-            } else if (pasteFailed.includes('wayland-paste-unsupported')) {
+            } else if (pasteFailed.includes(ERR_WAYLAND_PASTE_UNSUPPORTED)) {
                 friendly =
                     "Couldn't paste — Wayland blocks synthetic keystrokes. Text is on your clipboard; press Ctrl+V to paste it.";
             } else {
