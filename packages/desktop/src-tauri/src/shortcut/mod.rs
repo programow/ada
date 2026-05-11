@@ -22,8 +22,18 @@ pub enum HotkeyCombo {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ShortcutError {
-    #[error("accessibility permission required for Fn-key shortcut")]
+    /// Accessibility (TCC `kTCCServiceAccessibility`) is required to *post*
+    /// synthetic key events (paste via `CGEventPost`). Kept distinct from
+    /// [`Self::InputMonitoringRequired`] which gates *listening* via
+    /// `CGEventTap`.
+    #[error("accessibility permission required for synthetic keystroke")]
     AccessibilityRequired,
+    /// Input Monitoring (TCC `kTCCServiceListenEvent`) is required to install
+    /// the `CGEventTap` that observes the Fn modifier. This is the
+    /// permission the Fn-key shortcut needs — Accessibility alone is not
+    /// enough.
+    #[error("input monitoring permission required for Fn-key shortcut")]
+    InputMonitoringRequired,
     #[error("shortcut backend error: {0}")]
     Backend(String),
 }

@@ -28,8 +28,26 @@ pub fn check_accessibility_permission() -> PermissionState {
     PermissionState::Granted
 }
 
+pub fn check_accessibility_permission_prompting() -> PermissionState {
+    // No AX trust system on Linux; the prompting variant is a no-op.
+    PermissionState::Granted
+}
+
 pub fn request_accessibility_permission() -> Result<(), AudioError> {
     Ok(())
+}
+
+/// X11 / Wayland have no per-app input-event-monitoring gate analogous to
+/// macOS's `kTCCServiceListenEvent`. Wayland *does* restrict global key
+/// capture at the compositor level, but that's a different model with no
+/// consent prompt to drive; treat as `Granted` and let the shortcut backend
+/// surface its own errors if registration fails.
+pub fn check_input_monitoring_permission() -> PermissionState {
+    PermissionState::Granted
+}
+
+pub fn request_input_monitoring_permission() -> Result<PermissionState, AudioError> {
+    Ok(PermissionState::Granted)
 }
 
 pub fn open_settings_panel_impl(_panel: SettingsPanel) -> Result<(), AudioError> {

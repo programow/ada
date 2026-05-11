@@ -4,9 +4,18 @@
 //!
 //! `tauri-plugin-global-shortcut` cannot observe the secondary-fn
 //! modifier, so the Fn key is wired through a `CGEventTap` listening
-//! on `kCGEventTypeFlagsChanged`. The tap requires Accessibility
-//! permission; if `CGEventTapCreate` returns null we surface that as
-//! [`ShortcutError::AccessibilityRequired`] rather than panicking.
+//! on `kCGEventTypeFlagsChanged`. `CGEventTap` gates on the
+//! **Input Monitoring** TCC bucket (`kTCCServiceListenEvent`) — NOT
+//! Accessibility. The classic mistake (and one this codebase made in
+//! earlier revisions) is to surface a missing tap as
+//! `AccessibilityRequired`; granting Accessibility alone does not fix
+//! the Fn tap. We surface this as
+//! [`ShortcutError::InputMonitoringRequired`].
+//!
+//! Compare with `CGEventPost` (used by the paste path via `enigo`),
+//! which *does* gate on Accessibility — a different TCC bucket
+//! (`kTCCServiceAccessibility`). Listen and post are two separate
+//! permissions even though both relate to keyboard events.
 //!
 //! Spec reference: §6.10.
 
@@ -112,11 +121,16 @@ impl MacOsFnTap {
                     CFRunLoop::run_current();
                 }
                 Err(()) => {
+                    // `CGEventTap::new` returns Err(()) when the kernel
+                    // refuses to install the tap. In practice on macOS the
+                    // overwhelming cause is missing Input Monitoring
+                    // (`kTCCServiceListenEvent`) — not Accessibility.
                     log::error!(
-                        "CGEventTap creation returned null — Accessibility \
-                         permission almost certainly missing"
+                        "CGEventTap creation returned null — Input Monitoring \
+                         permission almost certainly missing \
+                         (kTCCServiceListenEvent; NOT Accessibility)"
                     );
-                    let _ = tx.send(Err(ShortcutError::AccessibilityRequired));
+                    let _ = tx.send(Err(ShortcutError::InputMonitoringRequired));
                 }
             }
         });

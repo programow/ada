@@ -12,8 +12,33 @@ export const vox = {
     checkMicrophonePermission: () => invoke<PermissionState>('check_microphone_permission'),
     requestMicrophonePermission: () => invoke<PermissionState>('request_microphone_permission'),
     checkAccessibilityPermission: () => invoke<PermissionState>('check_accessibility_permission'),
+    /**
+     * Same as `checkAccessibilityPermission` but uses `prompt:true` so the
+     * first call when the process isn't trusted shows the native macOS
+     * "Open System Settings" dialog. Use on explicit user gesture (e.g. a
+     * "Grant Accessibility" button); use the non-prompting variant for
+     * passive status polling so the user doesn't get spammed with dialogs.
+     */
+    checkAccessibilityPermissionPrompting: () =>
+        invoke<PermissionState>('check_accessibility_permission_prompting'),
     requestAccessibilityPermission: () => invoke<void>('request_accessibility_permission'),
-    openSettingsPanel: (panel: 'microphone' | 'accessibility') =>
+    /**
+     * Input Monitoring status — the macOS TCC bucket
+     * (`kTCCServiceListenEvent`) that gates `CGEventTap`. This is what the
+     * Fn-key shortcut needs; Accessibility (which gates `CGEventPost`,
+     * i.e. paste) is a different permission.
+     */
+    checkInputMonitoringPermission: () =>
+        invoke<PermissionState>('check_input_monitoring_permission'),
+    /**
+     * Kick off the Input Monitoring authorization flow. The OS dialog
+     * appears asynchronously and the grant only takes effect after the
+     * user quits and reopens the app (TCC does not propagate to a
+     * running process).
+     */
+    requestInputMonitoringPermission: () =>
+        invoke<PermissionState>('request_input_monitoring_permission'),
+    openSettingsPanel: (panel: 'microphone' | 'accessibility' | 'input-monitoring') =>
         invoke<void>('open_settings_panel', { panel }),
 
     listAudioInputDevices: () => invoke<AudioDeviceInfo[]>('list_audio_input_devices'),

@@ -50,19 +50,55 @@ pub fn check_accessibility_permission() -> PermissionState {
     crate::audio::permissions::check_accessibility_permission()
 }
 
+/// Same TCC bucket as [`check_accessibility_permission`] but uses
+/// `prompt:true` under the hood so the first invocation when the process
+/// is not yet trusted raises the native macOS "Open System Settings"
+/// dialog. Frontend convention: call this on an explicit user gesture
+/// (e.g. clicking the "Grant Accessibility" button) and call the
+/// non-prompting variant during passive status polling.
+#[tauri::command]
+pub fn check_accessibility_permission_prompting() -> PermissionState {
+    crate::audio::permissions::check_accessibility_permission_prompting()
+}
+
 #[tauri::command]
 pub fn request_accessibility_permission() -> Result<(), String> {
     crate::audio::permissions::request_accessibility_permission().map_err(|e| e.to_string())
 }
 
+/// Input Monitoring status — the permission the Fn-key `CGEventTap` needs.
+/// Distinct from Accessibility on macOS (`kTCCServiceListenEvent` vs
+/// `kTCCServiceAccessibility`).
+#[tauri::command]
+pub fn check_input_monitoring_permission() -> PermissionState {
+    crate::audio::permissions::check_input_monitoring_permission()
+}
+
+/// Kick off the macOS Input Monitoring authorization flow via
+/// `CGRequestListenEventAccess`. The OS dialog appears asynchronously and
+/// the grant only takes effect after the user toggles the switch *and*
+/// the app is relaunched (TCC does not propagate authorization changes to
+/// a running process). Callers should poll
+/// [`check_input_monitoring_permission`] and prompt the user to quit and
+/// reopen Vox Era.
+#[tauri::command]
+pub fn request_input_monitoring_permission() -> Result<PermissionState, String> {
+    crate::audio::permissions::request_input_monitoring_permission()
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn open_settings_panel(panel: String) -> Result<(), String> {
     use crate::audio::permissions::{
-        open_settings_accessibility_panel, open_settings_microphone_panel,
+        open_settings_accessibility_panel, open_settings_input_monitoring_panel,
+        open_settings_microphone_panel,
     };
     match panel.as_str() {
         "microphone" => open_settings_microphone_panel().map_err(|e| e.to_string()),
         "accessibility" => open_settings_accessibility_panel().map_err(|e| e.to_string()),
+        "input-monitoring" => {
+            open_settings_input_monitoring_panel().map_err(|e| e.to_string())
+        }
         other => Err(format!("unknown panel: {other}")),
     }
 }
@@ -160,7 +196,16 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
         "paste_text: dispatching {} chars to clipboard + paste keystroke",
         text.chars().count()
     );
-    state.paster.paste_text(&text)
+    let result = state.paster.paste_text(&text);
+    #[cfg(target_os = "linux")]
+    if let Err(ref e) = result {
+        if e.starts_with("wayland-paste-unsupported:") {
+            log::warn!(
+                "paste_text: Wayland fallback engaged; clipboard write succeeded but synthetic Ctrl+V was skipped"
+            );
+        }
+    }
+    result
 }
 
 #[tauri::command]
@@ -225,7 +270,16 @@ fn register_fn_hotkey(
         let _ = app_clone.emit("vox-era://shortcut-toggle", ());
     }));
     tap.register(HotkeyCombo::Fn).map_err(|e| match e {
+        crate::shortcut::ShortcutError::InputMonitoringRequired => {
+            // TCC changes do NOT propagate to a running process. The user
+            // must quit and reopen after toggling the switch, otherwise the
+            // tap will keep failing even though Settings shows "on".
+            "input-monitoring-required: grant Vox Era in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app".to_string()
+        }
         crate::shortcut::ShortcutError::AccessibilityRequired => {
+            // Defensive: the Fn tap should never surface this variant any
+            // more, but if a future backend path does we still want a sane
+            // message. Paste uses Accessibility — hence the wording.
             "accessibility-required: grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again".to_string()
         }
         other => other.to_string(),

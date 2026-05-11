@@ -62,14 +62,32 @@ pub fn check_accessibility_permission() -> PermissionState {
     PermissionState::Granted
 }
 
+pub fn check_accessibility_permission_prompting() -> PermissionState {
+    // Windows has no AX trust dialog; the prompting variant is a no-op.
+    PermissionState::Granted
+}
+
 pub fn request_accessibility_permission() -> Result<(), AudioError> {
     Ok(())
+}
+
+/// Input Monitoring has no Windows equivalent gate — desktop apps can
+/// install low-level keyboard hooks without per-app consent.
+pub fn check_input_monitoring_permission() -> PermissionState {
+    PermissionState::Granted
+}
+
+pub fn request_input_monitoring_permission() -> Result<PermissionState, AudioError> {
+    Ok(PermissionState::Granted)
 }
 
 pub fn open_settings_panel_impl(panel: SettingsPanel) -> Result<(), AudioError> {
     let uri = match panel {
         SettingsPanel::Microphone => "ms-settings:privacy-microphone",
         SettingsPanel::Accessibility => "ms-settings:easeofaccess",
+        // Windows doesn't have a dedicated Input Monitoring page; the root
+        // Privacy pane is the closest equivalent.
+        SettingsPanel::InputMonitoring => "ms-settings:privacy",
     };
     Command::new("cmd")
         .args(["/C", "start", "", uri])

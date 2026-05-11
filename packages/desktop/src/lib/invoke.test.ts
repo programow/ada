@@ -78,3 +78,37 @@ describe('vox.registerHotkey', () => {
         expect(formatted).toBe('Cmd+Shift+Space');
     });
 });
+
+describe('input monitoring + prompting accessibility wrappers', () => {
+    beforeEach(() => {
+        vi.mocked(core.invoke).mockReset();
+    });
+
+    it('checkInputMonitoringPermission invokes the snake_case command', async () => {
+        vi.mocked(core.invoke).mockResolvedValueOnce('Denied');
+        const result = await vox.checkInputMonitoringPermission();
+        expect(core.invoke).toHaveBeenCalledWith('check_input_monitoring_permission');
+        expect(result).toBe('Denied');
+    });
+
+    it('requestInputMonitoringPermission invokes the snake_case command', async () => {
+        vi.mocked(core.invoke).mockResolvedValueOnce('Granted');
+        const result = await vox.requestInputMonitoringPermission();
+        expect(core.invoke).toHaveBeenCalledWith('request_input_monitoring_permission');
+        expect(result).toBe('Granted');
+    });
+
+    it('checkAccessibilityPermissionPrompting routes to a different command than the non-prompting variant', async () => {
+        vi.mocked(core.invoke).mockResolvedValueOnce('Granted');
+        await vox.checkAccessibilityPermissionPrompting();
+        expect(core.invoke).toHaveBeenCalledWith('check_accessibility_permission_prompting');
+    });
+
+    it('openSettingsPanel accepts the input-monitoring value', async () => {
+        vi.mocked(core.invoke).mockResolvedValueOnce(undefined);
+        await vox.openSettingsPanel('input-monitoring');
+        expect(core.invoke).toHaveBeenCalledWith('open_settings_panel', {
+            panel: 'input-monitoring',
+        });
+    });
+});
