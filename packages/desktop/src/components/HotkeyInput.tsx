@@ -14,6 +14,11 @@ export interface HotkeyInputProps {
     onCaptureCancel?: () => void;
 }
 
+function isMacPlatform(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    return /Mac|iPhone|iPad/i.test(navigator.platform);
+}
+
 function formatFromEvent(e: KeyboardEvent): string | null {
     if (e.key === 'Escape') return null;
     const isModifierKey =
@@ -93,6 +98,15 @@ export function HotkeyInput({
                 {capturing ? 'Press a key combo…' : value}
             </span>
             <Button onClick={toggle}>{capturing ? 'Cancel' : 'Capture…'}</Button>
+            {isMacPlatform() && (
+                <Button
+                    variant="outline"
+                    onClick={() => onChange('Fn')}
+                    title="Use the macOS Fn key. Requires Accessibility permission."
+                >
+                    Use Fn
+                </Button>
+            )}
         </div>
     );
 }

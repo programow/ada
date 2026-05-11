@@ -57,6 +57,8 @@ pub fn run() {
                 vault: Box::new(KeyringVault::new()),
                 paster: Box::new(EnigoPaster::new(clipboard)),
                 current_hotkey: Mutex::new(None),
+                #[cfg(target_os = "macos")]
+                fn_tap: Mutex::new(None),
             };
             app.manage(app_state);
 

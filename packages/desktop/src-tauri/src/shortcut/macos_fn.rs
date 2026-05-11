@@ -24,8 +24,8 @@ use std::thread::{self, JoinHandle};
 /// Stable across macOS versions; mirrors `NSEventModifierFlagFunction`.
 const FN_FLAG_MASK: u64 = CGEventFlags::CGEventFlagSecondaryFn.bits();
 
-pub struct MacOsFnTap<F: Fn() + Send + Sync + 'static> {
-    on_toggle: Arc<F>,
+pub struct MacOsFnTap {
+    on_toggle: Arc<dyn Fn() + Send + Sync + 'static>,
     state: Arc<Mutex<TapState>>,
 }
 
@@ -33,8 +33,8 @@ struct TapState {
     thread: Option<JoinHandle<()>>,
 }
 
-impl<F: Fn() + Send + Sync + 'static> MacOsFnTap<F> {
-    pub fn new(on_toggle: F) -> Self {
+impl MacOsFnTap {
+    pub fn new<F: Fn() + Send + Sync + 'static>(on_toggle: F) -> Self {
         Self {
             on_toggle: Arc::new(on_toggle),
             state: Arc::new(Mutex::new(TapState { thread: None })),
@@ -119,7 +119,7 @@ impl<F: Fn() + Send + Sync + 'static> MacOsFnTap<F> {
     }
 }
 
-impl<F: Fn() + Send + Sync + 'static> ShortcutManager for MacOsFnTap<F> {
+impl ShortcutManager for MacOsFnTap {
     fn register(&self, combo: HotkeyCombo) -> Result<(), ShortcutError> {
         match combo {
             HotkeyCombo::Fn => self.start(),
@@ -170,6 +170,6 @@ mod tests {
     #[test]
     fn macos_fn_tap_implements_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
-        assert_send_sync::<MacOsFnTap<fn()>>();
+        assert_send_sync::<MacOsFnTap>();
     }
 }

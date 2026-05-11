@@ -2,10 +2,13 @@ use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState
 use crate::paste::Paster;
 use crate::secrets::Vault;
 use crate::shortcut::parse::{format_combo, parse_combo};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use uuid::Uuid;
+
+#[cfg(target_os = "macos")]
+use crate::shortcut::{HotkeyCombo, ShortcutManager, macos_fn::MacOsFnTap};
 
 /// Application state shared across Tauri commands.
 ///
@@ -22,6 +25,12 @@ pub struct AppState {
     pub vault: Box<dyn Vault>,
     pub paster: Box<dyn Paster>,
     pub current_hotkey: Mutex<Option<Shortcut>>,
+    /// macOS Fn-key tap. Lazily initialized the first time the user picks
+    /// `"Fn"` as their hotkey. Once running it survives the app lifetime
+    /// (CFRunLoop has no clean stop in v1); switching back to a standard
+    /// combo just unregisters the global shortcut, the dormant tap stays.
+    #[cfg(target_os = "macos")]
+    pub fn_tap: Mutex<Option<Arc<MacOsFnTap>>>,
 }
 
 #[tauri::command]
@@ -118,12 +127,23 @@ pub fn list_audio_input_devices() -> Vec<AudioDeviceInfo> {
     MicrophoneSource::list_devices().unwrap_or_default()
 }
 
+/// Returns true if the user-supplied combo string is the special `"Fn"`
+/// marker (case-insensitive, whitespace-tolerant) that routes to the
+/// macOS-only `CGEventTap` backend instead of the cross-platform
+/// global-shortcut plugin.
+fn is_fn_combo(combo: &str) -> bool {
+    combo.trim().eq_ignore_ascii_case("fn")
+}
+
 #[tauri::command]
 pub fn register_hotkey(
     app: AppHandle,
     state: State<'_, AppState>,
     combo: String,
 ) -> Result<String, String> {
+    if is_fn_combo(&combo) {
+        return register_fn_hotkey(&app, &state);
+    }
     let shortcut = parse_combo(&combo).map_err(|e| e.to_string())?;
     let mut current = state.current_hotkey.lock().map_err(|e| e.to_string())?;
     if let Some(prev) = current.take() {
@@ -141,6 +161,46 @@ pub fn register_hotkey(
     Ok(format_combo(&shortcut))
 }
 
+#[cfg(target_os = "macos")]
+fn register_fn_hotkey(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+) -> Result<String, String> {
+    // Make sure no standard global shortcut is also live so we don't get
+    // double-toggle from two backends.
+    {
+        let mut current = state.current_hotkey.lock().map_err(|e| e.to_string())?;
+        if let Some(prev) = current.take() {
+            let _ = app.global_shortcut().unregister(prev);
+        }
+    }
+    let mut tap_slot = state.fn_tap.lock().map_err(|e| e.to_string())?;
+    if tap_slot.is_some() {
+        // Tap already running from a prior register; idempotent success.
+        return Ok("Fn".to_string());
+    }
+    let app_clone = app.clone();
+    let tap = Arc::new(MacOsFnTap::new(move || {
+        let _ = app_clone.emit("vox-era://shortcut-toggle", ());
+    }));
+    tap.register(HotkeyCombo::Fn).map_err(|e| match e {
+        crate::shortcut::ShortcutError::AccessibilityRequired => {
+            "accessibility-required: grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again".to_string()
+        }
+        other => other.to_string(),
+    })?;
+    *tap_slot = Some(tap);
+    Ok("Fn".to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn register_fn_hotkey(
+    _app: &AppHandle,
+    _state: &State<'_, AppState>,
+) -> Result<String, String> {
+    Err("Fn key shortcut is only supported on macOS".to_string())
+}
+
 #[tauri::command]
 pub fn unregister_hotkey(
     app: AppHandle,
@@ -152,5 +212,8 @@ pub fn unregister_hotkey(
             .unregister(prev)
             .map_err(|e| e.to_string())?;
     }
+    // Note: the macOS Fn-key CGEventTap thread cannot be cleanly stopped
+    // in v1. If a Fn tap is running it stays alive; switching to a standard
+    // combo just leaves the tap dormant (it only fires on Fn presses).
     Ok(())
 }

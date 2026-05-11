@@ -22,6 +22,7 @@ export function SettingsRecording() {
     );
     const [testError, setTestError] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [hotkeyError, setHotkeyError] = useState<string | null>(null);
 
     const refreshDevices = useCallback(async () => {
         try {
@@ -54,8 +55,23 @@ export function SettingsRecording() {
         await setHotkeyCombo(combo);
         try {
             await vox.registerHotkey(combo);
+            setHotkeyError(null);
         } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
             console.error('register_hotkey failed', e);
+            if (msg.includes('accessibility-required')) {
+                setHotkeyError(
+                    'Fn key needs Accessibility permission. Click Open Settings, grant Vox Era, then choose Use Fn again.',
+                );
+                try {
+                    await vox.requestAccessibilityPermission();
+                } catch {
+                    // requestAccessibilityPermission already opens Settings; if it
+                    // throws we keep the inline error visible.
+                }
+            } else {
+                setHotkeyError(msg);
+            }
         }
     }
 
@@ -115,6 +131,14 @@ export function SettingsRecording() {
                             onCaptureCancel={() => void handleCaptureCancel()}
                         />
                     </div>
+                    {hotkeyError && (
+                        <p
+                            data-testid="hotkey-error"
+                            className="text-xs font-bold uppercase tracking-widest text-red-700"
+                        >
+                            {hotkeyError}
+                        </p>
+                    )}
                 </div>
                 <div className="flex flex-col gap-1">
                     <Label htmlFor={deviceId}>Microphone</Label>
