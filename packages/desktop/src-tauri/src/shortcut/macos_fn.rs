@@ -57,6 +57,7 @@ impl MacOsFnTap {
             let prev_for_cb = prev.clone();
             let on_toggle_for_cb = on_toggle.clone();
 
+            log::info!("Fn tap: creating CGEventTap for FlagsChanged events");
             let tap_result = CGEventTap::new(
                 CGEventTapLocation::HID,
                 CGEventTapPlacement::HeadInsertEventTap,
@@ -65,11 +66,22 @@ impl MacOsFnTap {
                 move |_proxy, _etype, event| {
                     let raw_flags = event.get_flags().bits();
                     let fn_pressed = (raw_flags & FN_FLAG_MASK) != 0;
+                    // Trace every FlagsChanged we observe so we can
+                    // distinguish "tap never fires" from "tap fires but Fn
+                    // bit isn't set" (the latter means the system mapped
+                    // Fn to language-switch or similar — see System
+                    // Settings → Keyboard → "Press 🌐 key to:").
+                    log::debug!(
+                        "Fn tap event: raw_flags=0x{raw_flags:x} fn_pressed={fn_pressed}"
+                    );
                     let mut last = prev_for_cb.lock().unwrap();
                     if fn_pressed != *last {
                         *last = fn_pressed;
                         if fn_pressed {
+                            log::info!("Fn key pressed — firing toggle");
                             (on_toggle_for_cb)();
+                        } else {
+                            log::debug!("Fn key released");
                         }
                     }
                     // ListenOnly tap: returning Some passes through
@@ -92,6 +104,7 @@ impl MacOsFnTap {
                     let current = CFRunLoop::get_current();
                     current.add_source(&loop_source, unsafe { kCFRunLoopCommonModes });
                     tap.enable();
+                    log::info!("Fn tap: enabled, waiting for FlagsChanged events");
                     let _ = tx.send(Ok(()));
                     // Blocks the spawned thread for the rest of the
                     // app lifetime. `unregister` is a no-op in v1

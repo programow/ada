@@ -21,6 +21,15 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Default to info-level logs in dev builds so Fn-tap diagnostics, paste
+    // errors, etc. surface in the terminal without setting RUST_LOG.
+    // Production builds stay quiet unless RUST_LOG is set.
+    #[cfg(debug_assertions)]
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info"),
+    )
+    .init();
+    #[cfg(not(debug_assertions))]
     env_logger::init();
 
     tauri::Builder::default()
