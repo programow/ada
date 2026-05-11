@@ -3,9 +3,22 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::SampleFormat;
 use std::io::{Cursor, Write};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use uuid::Uuid;
+
+/// Lock a mutex from inside the cpal real-time audio callback. If another
+/// thread panicked while holding the lock, the mutex is poisoned — but the
+/// audio thread must NOT propagate that panic (it would tear down CoreAudio
+/// on macOS and kill capture for the whole app). Recover the inner value
+/// and keep streaming; the worst case is one stale sample buffer or peak
+/// reading, which is preferable to losing audio.
+fn lock_or_recover<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    match m.lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
 
 /// `cpal::Stream` is intentionally `!Send + !Sync` on every platform (on macOS
 /// it owns CoreAudio property listeners that must stay on the thread that
@@ -162,10 +175,18 @@ impl AudioSource for MicrophoneSource {
                     SampleFormat::F32 => device.build_input_stream(
                         &stream_config,
                         move |data: &[f32], _: &_| {
-                            let mut buf = samples_clone.lock().unwrap();
-                            // Track the per-chunk peak across the *downmixed*
-                            // mono samples so the metered level matches the
-                            // audio we actually save.
+                            // Downmix + convert into a local buffer FIRST so
+                            // the shared `samples` mutex is only held long
+                            // enough to `extend`. Otherwise the UI thread's
+                            // 12 Hz peak poll can stall behind the entire
+                            // sample-conversion loop on stereo input.
+                            let mut local: Vec<i16> = Vec::with_capacity(
+                                if channels <= 1 {
+                                    data.len()
+                                } else {
+                                    data.len() / channels
+                                },
+                            );
                             let mut chunk_peak: f32 = 0.0;
                             if channels <= 1 {
                                 for &s in data {
@@ -174,7 +195,7 @@ impl AudioSource for MicrophoneSource {
                                     if abs > chunk_peak {
                                         chunk_peak = abs;
                                     }
-                                    buf.push((mono * 32767.0) as i16);
+                                    local.push((mono * 32767.0) as i16);
                                 }
                             } else {
                                 for frame in data.chunks_exact(channels) {
@@ -185,15 +206,24 @@ impl AudioSource for MicrophoneSource {
                                     if abs > chunk_peak {
                                         chunk_peak = abs;
                                     }
-                                    buf.push((mono * 32767.0) as i16);
+                                    local.push((mono * 32767.0) as i16);
                                 }
+                            }
+                            // Brief critical section: just extend + drop.
+                            // `lock_or_recover` keeps the audio thread alive
+                            // even if another thread poisoned the mutex.
+                            {
+                                let mut buf = lock_or_recover(&samples_clone);
+                                buf.extend_from_slice(&local);
                             }
                             // Merge with whatever the consumer hasn't read
                             // yet — keep the loudest sample so a quiet poll
                             // window doesn't erase a recent transient.
-                            let mut peak = peak_clone_f32.lock().unwrap();
-                            if chunk_peak > *peak {
-                                *peak = chunk_peak;
+                            {
+                                let mut peak = lock_or_recover(&peak_clone_f32);
+                                if chunk_peak > *peak {
+                                    *peak = chunk_peak;
+                                }
                             }
                         },
                         err_fn,
@@ -202,17 +232,20 @@ impl AudioSource for MicrophoneSource {
                     SampleFormat::I16 => device.build_input_stream(
                         &stream_config,
                         move |data: &[i16], _: &_| {
-                            let mut buf = samples_clone.lock().unwrap();
+                            // Same approach as F32: produce the mono samples
+                            // into a local buffer, then take the shared lock
+                            // only to append.
                             let mut chunk_peak_i: i32 = 0;
-                            if channels <= 1 {
+                            let local: Vec<i16> = if channels <= 1 {
                                 for &s in data {
                                     let abs = (s as i32).abs();
                                     if abs > chunk_peak_i {
                                         chunk_peak_i = abs;
                                     }
                                 }
-                                buf.extend_from_slice(data);
+                                data.to_vec()
                             } else {
+                                let mut out = Vec::with_capacity(data.len() / channels);
                                 for frame in data.chunks_exact(channels) {
                                     let sum: i32 =
                                         frame.iter().map(|&s| s as i32).sum();
@@ -221,15 +254,22 @@ impl AudioSource for MicrophoneSource {
                                     if abs > chunk_peak_i {
                                         chunk_peak_i = abs;
                                     }
-                                    buf.push(mono);
+                                    out.push(mono);
                                 }
+                                out
+                            };
+                            {
+                                let mut buf = lock_or_recover(&samples_clone);
+                                buf.extend_from_slice(&local);
                             }
                             // i16 range is [-32768, 32767]; divide by 32768
                             // for a symmetric 0..1 normalization.
                             let chunk_peak = (chunk_peak_i as f32) / 32768.0;
-                            let mut peak = peak_clone_i16.lock().unwrap();
-                            if chunk_peak > *peak {
-                                *peak = chunk_peak;
+                            {
+                                let mut peak = lock_or_recover(&peak_clone_i16);
+                                if chunk_peak > *peak {
+                                    *peak = chunk_peak;
+                                }
                             }
                         },
                         err_fn,
@@ -359,11 +399,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn microphone_source_can_be_constructed() {
-        let _src = MicrophoneSource::new();
-    }
-
-    #[test]
     fn peak_level_resets_after_read() {
         let src = MicrophoneSource::new();
         let id = Uuid::new_v4();
@@ -404,5 +439,94 @@ mod tests {
         // serializable.
         let result = MicrophoneSource::list_devices();
         assert!(result.is_ok(), "list_devices should not error: {result:?}");
+    }
+
+    #[test]
+    fn peak_level_under_lock_contention() {
+        // Holding the `samples` lock on one thread must NOT block
+        // `peak_level_for` on another thread — peak tracking uses a
+        // separate mutex. If a future refactor merges the locks, this
+        // test will deadlock (or block until the holder releases) and
+        // surface the regression.
+        use std::sync::Barrier;
+        use std::time::Duration;
+
+        let src = Arc::new(MicrophoneSource::new());
+        let id = Uuid::new_v4();
+        src.insert_test_session(id, 0.5);
+
+        // Grab the `samples` Arc by reaching into the session list. This
+        // mirrors what the cpal callback holds.
+        let samples_arc = {
+            let sessions = src.sessions.lock().unwrap();
+            sessions.iter().find(|s| s.id == id).unwrap().samples.clone()
+        };
+
+        let barrier = Arc::new(Barrier::new(2));
+        let release = Arc::new(Mutex::new(false));
+        let release_holder = release.clone();
+        let barrier_holder = barrier.clone();
+
+        let holder = thread::spawn(move || {
+            let _guard = samples_arc.lock().unwrap();
+            barrier_holder.wait();
+            // Spin until the main thread tells us we're done. Crucially,
+            // we keep `_guard` held the entire time.
+            loop {
+                thread::sleep(Duration::from_millis(5));
+                if *release_holder.lock().unwrap() {
+                    break;
+                }
+            }
+        });
+
+        // Wait until the holder actually owns `samples`.
+        barrier.wait();
+
+        // This must complete promptly — it only touches `peak_level`.
+        let v = src.peak_level_for(id).expect("session exists");
+        assert!((v - 0.5).abs() < f32::EPSILON);
+
+        *release.lock().unwrap() = true;
+        holder.join().unwrap();
+    }
+
+    #[test]
+    fn poisoned_samples_mutex_does_not_kill_callbacks() {
+        // Approximation of the real-time recovery contract: poison a
+        // Mutex<Vec<i16>> by panicking with the lock held, then verify
+        // `lock_or_recover` still hands back the inner value instead of
+        // propagating the poison (which would panic the audio thread).
+        let m: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(vec![1, 2, 3]));
+        let m_clone = m.clone();
+        let poisoner = thread::spawn(move || {
+            let _guard = m_clone.lock().unwrap();
+            panic!("intentional poison");
+        });
+        // Join the panicking thread — its panic poisons the mutex but the
+        // join itself returns an Err, not a panic on this thread.
+        assert!(poisoner.join().is_err());
+        assert!(m.lock().is_err(), "mutex should be poisoned");
+
+        let guard = lock_or_recover(&m);
+        assert_eq!(&*guard, &[1, 2, 3]);
+    }
+
+    #[test]
+    fn encode_wav_pcm16_handles_empty_samples() {
+        let bytes = encode_wav_pcm16(&[], 48_000);
+        // RIFF header is 44 bytes for canonical PCM WAV (12 RIFF/WAVE +
+        // 24 fmt + 8 data header).
+        assert_eq!(bytes.len(), 44);
+        assert_eq!(&bytes[..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        assert_eq!(&bytes[12..16], b"fmt ");
+        assert_eq!(&bytes[36..40], b"data");
+        // data chunk size is the last 4 bytes; must be 0 for empty samples.
+        let data_len = u32::from_le_bytes(bytes[40..44].try_into().unwrap());
+        assert_eq!(data_len, 0);
+        // RIFF chunk size = 36 + data_len = 36 when empty.
+        let riff_len = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        assert_eq!(riff_len, 36);
     }
 }
