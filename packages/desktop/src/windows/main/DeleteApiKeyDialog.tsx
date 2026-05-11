@@ -14,17 +14,13 @@ import {
     getActiveModelConfigId,
     listModelConfigDependencies,
 } from '@/lib/db';
-import { PROVIDERS } from '@/providers';
+import { providerName } from '@/providers/util';
 import { useEffect, useState } from 'react';
 
 interface DeleteApiKeyDialogProps {
     apiKey: ApiKeyRow;
     onClose: () => void;
     onDeleted: () => void;
-}
-
-function providerName(id: string): string {
-    return PROVIDERS.find((p) => p.id === id)?.name ?? id;
 }
 
 export function DeleteApiKeyDialog({ apiKey, onClose, onDeleted }: DeleteApiKeyDialogProps) {

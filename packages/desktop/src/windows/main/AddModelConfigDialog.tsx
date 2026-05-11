@@ -10,29 +10,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { type ApiKeyRow, addModelConfig, listApiKeys } from '@/lib/db';
 import { vox } from '@/lib/invoke';
-import { type Model, PROVIDERS, type ProviderConfig } from '@/providers';
+import { type Model, PROVIDERS } from '@/providers';
+import { modelPriceLabel, providerName } from '@/providers/util';
 import { useEffect, useId, useMemo, useState } from 'react';
-
-function formatPricePerMin(perMinuteUSD: number): string {
-    // Sub-cent rates need more precision; cent-or-more rates round nicely.
-    if (perMinuteUSD >= 0.01) return `$${perMinuteUSD.toFixed(4)}/min`;
-    return `$${perMinuteUSD.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}/min`;
-}
-
-function modelPriceLabel(provider: ProviderConfig | undefined, modelId: string): string | null {
-    const entry = provider?.pricing[modelId];
-    if (!entry) return null;
-    return formatPricePerMin(entry.perMinuteUSD);
-}
 
 interface AddModelConfigDialogProps {
     open: boolean;
     onClose: () => void;
     onAdded: () => void;
-}
-
-function providerName(id: string): string {
-    return PROVIDERS.find((p) => p.id === id)?.name ?? id;
 }
 
 export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigDialogProps) {
@@ -165,7 +150,10 @@ export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigD
                                     onChange={(e) => setSelectedModel(e.target.value)}
                                 >
                                     {models.map((m) => {
-                                        const price = modelPriceLabel(selectedProvider, m.id);
+                                        const price = modelPriceLabel(
+                                            selectedProvider?.id ?? '',
+                                            m.id,
+                                        );
                                         return (
                                             <option key={m.id} value={m.id}>
                                                 {price

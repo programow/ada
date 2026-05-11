@@ -8,24 +8,9 @@ import {
     setActiveModelConfigId,
 } from '@/lib/db';
 import { cn } from '@/lib/utils';
-import { PROVIDERS } from '@/providers';
+import { modelPriceLabel, providerName } from '@/providers/util';
 import { useCallback, useEffect, useState } from 'react';
 import { AddModelConfigDialog } from './AddModelConfigDialog';
-
-function providerName(id: string): string {
-    return PROVIDERS.find((p) => p.id === id)?.name ?? id;
-}
-
-function formatPricePerMin(perMinuteUSD: number): string {
-    if (perMinuteUSD >= 0.01) return `$${perMinuteUSD.toFixed(4)}/min`;
-    return `$${perMinuteUSD.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}/min`;
-}
-
-function modelPriceLabel(providerId: string, modelId: string): string | null {
-    const entry = PROVIDERS.find((p) => p.id === providerId)?.pricing[modelId];
-    if (!entry) return null;
-    return formatPricePerMin(entry.perMinuteUSD);
-}
 
 export function SettingsModelConfigs() {
     const [configs, setConfigs] = useState<ModelConfigWithApiKey[]>([]);

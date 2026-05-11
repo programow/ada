@@ -1,14 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type ApiKeyRow, listApiKeys } from '@/lib/db';
-import { PROVIDERS } from '@/providers';
+import { providerName } from '@/providers/util';
 import { useCallback, useEffect, useState } from 'react';
 import { AddApiKeyDialog } from './AddApiKeyDialog';
 import { DeleteApiKeyDialog } from './DeleteApiKeyDialog';
-
-function providerName(id: string): string {
-    return PROVIDERS.find((p) => p.id === id)?.name ?? id;
-}
 
 export function SettingsApiKeys() {
     const [keys, setKeys] = useState<ApiKeyRow[]>([]);
