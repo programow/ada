@@ -27,9 +27,11 @@ Print the steps that are about to run and ask for confirmation before any destru
 
 1. `tccutil reset Microphone com.vhtechnology.voxera`
 2. `tccutil reset Accessibility com.vhtechnology.voxera`
-3. `rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/`
-4. `cd packages/desktop && bun run tauri:build`
-5. `cp -R "packages/desktop/src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"`
+3. `tccutil reset ListenEvent com.vhtechnology.voxera`
+4. `tccutil reset AppleEvents com.vhtechnology.voxera`
+5. `rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/`
+6. `cd packages/desktop && bun run tauri:build`
+7. `cp -R "packages/desktop/src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"`
 
 Ask: "This will delete `/Applications/Vox Era.app` and the Tauri release bundle output. Proceed?" Wait for confirmation.
 
@@ -38,17 +40,19 @@ Ask: "This will delete `/Applications/Vox Era.app` and the Tauri release bundle 
 Halt on the first non-zero exit and report which step failed.
 
 ```bash
-# 1-2: Reset TCC. tccutil exits non-zero when no entry exists; treat that as success.
+# 1-4: Reset TCC. tccutil exits non-zero when no entry exists; treat that as success.
 tccutil reset Microphone com.vhtechnology.voxera || true
 tccutil reset Accessibility com.vhtechnology.voxera || true
+tccutil reset ListenEvent com.vhtechnology.voxera || true
+tccutil reset AppleEvents com.vhtechnology.voxera || true
 
-# 3: Remove the previous install + bundle output.
+# 5: Remove the previous install + bundle output.
 rm -rf "/Applications/Vox Era.app" packages/desktop/src-tauri/target/release/bundle/
 
-# 4: Build (signed via the configured signing identity if set; otherwise ad-hoc).
+# 6: Build (signed via the configured signing identity if set; otherwise ad-hoc).
 cd packages/desktop && bun run tauri:build
 
-# 5: Install.
+# 7: Install.
 cp -R "src-tauri/target/release/bundle/macos/Vox Era.app" "/Applications/Vox Era.app"
 ```
 
@@ -84,6 +88,6 @@ Start-Process "src-tauri\target\release\bundle\msi\Vox Era_*_x64_en-US.msi"
 
 ## After install
 
-Launch Vox Era. macOS will prompt for Microphone, then later (when the global shortcut fires for the first time) for Accessibility. Approve both. If no prompts appear, run `/reset-perms` and relaunch — a previous denial may be cached.
+Launch Vox Era. macOS will prompt for Microphone, then later (when the global shortcut fires for the first time) for Accessibility — plus Input Monitoring the first time the user picks the Fn key as their shortcut. Approve them as they appear. If no prompts appear, run `/reset-perms` and relaunch — a previous denial may be cached.
 
 For symptom-keyed troubleshooting, see `docs/troubleshooting.md` (Plan D).
