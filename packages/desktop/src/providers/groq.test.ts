@@ -20,8 +20,14 @@ describe('groq provider config', () => {
             const entry = cfg.pricing[m.id];
             expect(entry).toBeDefined();
             expect(entry?.perMinuteUSD).toBeGreaterThan(0);
-            expect(entry?.lastUpdated).toBe('2026-05-03');
+            expect(entry?.lastUpdated).toBe('2026-05-11');
         }
+    });
+
+    it('does not surface retired models in defaults', () => {
+        const ids = cfg.defaultModels.map((m) => m.id);
+        // distil-whisper-large-v3-en was shut down 2025-08-23 by Groq.
+        expect(ids).not.toContain('distil-whisper-large-v3-en');
     });
 
     it('makeModel returns a model object', () => {
@@ -49,14 +55,14 @@ describe('groq listModels', () => {
     afterEach(() => server.resetHandlers());
     afterAll(() => server.close());
 
-    it('listModels filters to whisper/distil entries', async () => {
+    it('listModels filters to whisper entries', async () => {
         expect(cfg.listModels).not.toBeNull();
         const models = await cfg.listModels?.('gsk-test');
         const ids = models?.map((m) => m.id).sort();
-        expect(ids).toEqual([
-            'distil-whisper-large-v3-en',
-            'whisper-large-v3',
-            'whisper-large-v3-turbo',
-        ]);
+        // Groq still returns distil-whisper-large-v3-en in /v1/models even
+        // though transcription is shut down; our filter accepts it (legacy
+        // alias translates it on use) but our defaults don't surface it.
+        expect(ids).toContain('whisper-large-v3');
+        expect(ids).toContain('whisper-large-v3-turbo');
     });
 });

@@ -4,14 +4,24 @@ import type { Model, ProviderConfig } from './types';
 const DEFAULT_MODELS: Model[] = [
     { id: 'whisper-large-v3', displayName: 'Whisper Large v3' },
     { id: 'whisper-large-v3-turbo', displayName: 'Whisper Large v3 Turbo' },
-    {
-        id: 'distil-whisper-large-v3-en',
-        displayName: 'Distil Whisper Large v3 (English)',
-    },
 ];
 
+/**
+ * Groq retired `distil-whisper-large-v3-en` on 2025-08-23 (see
+ * https://console.groq.com/docs/deprecations). The recommended replacement
+ * is `whisper-large-v3-turbo`. Translate any persisted user configs that
+ * still reference the old id so they don't break on next transcription.
+ */
+const LEGACY_MODEL_ALIASES: Record<string, string> = {
+    'distil-whisper-large-v3-en': 'whisper-large-v3-turbo',
+};
+
+function resolveModelId(id: string): string {
+    return LEGACY_MODEL_ALIASES[id] ?? id;
+}
+
 function isTranscriptionModel(id: string): boolean {
-    return id.includes('whisper') || id.startsWith('distil-whisper');
+    return id.includes('whisper');
 }
 
 export const groqConfig: ProviderConfig = {
@@ -21,7 +31,7 @@ export const groqConfig: ProviderConfig = {
     docsUrl: 'https://console.groq.com/docs/speech-text',
     apiKeyHelpUrl: 'https://console.groq.com/keys',
     pricingDocsUrl: 'https://groq.com/pricing/',
-    makeModel: (modelId, apiKey) => createGroq({ apiKey }).transcription(modelId),
+    makeModel: (modelId, apiKey) => createGroq({ apiKey }).transcription(resolveModelId(modelId)),
     listModels: async (apiKey) => {
         const res = await fetch('https://api.groq.com/openai/v1/models', {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -41,15 +51,11 @@ export const groqConfig: ProviderConfig = {
     pricing: {
         'whisper-large-v3': {
             perMinuteUSD: 0.000185,
-            lastUpdated: '2026-05-03',
+            lastUpdated: '2026-05-11',
         },
         'whisper-large-v3-turbo': {
             perMinuteUSD: 0.00006666,
-            lastUpdated: '2026-05-03',
-        },
-        'distil-whisper-large-v3-en': {
-            perMinuteUSD: 0.0000333,
-            lastUpdated: '2026-05-03',
+            lastUpdated: '2026-05-11',
         },
     },
 };
