@@ -73,7 +73,9 @@ pub fn run() {
             let app_state = AppState {
                 audio: Box::new(MicrophoneSource::new()),
                 vault: Box::new(KeyringVault::new()),
-                paster: Box::new(EnigoPaster::new(clipboard)),
+                // `Arc` so the async `paste_text` command can clone the paster
+                // into a `spawn_blocking` task without an extra trait surface.
+                paster: Arc::new(EnigoPaster::new(clipboard)),
                 current_hotkey: Mutex::new(None),
                 #[cfg(target_os = "macos")]
                 fn_tap: Mutex::new(None),

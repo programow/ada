@@ -7,15 +7,16 @@ use crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED;
 use crate::paste::Paster;
 use crate::platform::is_wayland_session;
 use crate::secrets::Vault;
+use crate::shortcut::HotkeyCombo;
 use crate::shortcut::parse::{format_combo, parse_combo};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use uuid::Uuid;
 
 #[cfg(target_os = "macos")]
-use crate::shortcut::{HotkeyCombo, ShortcutManager, macos_fn::MacOsFnTap};
+use crate::shortcut::{ShortcutManager, macos_fn::MacOsFnTap};
 
 /// Application state shared across Tauri commands.
 ///
@@ -30,7 +31,11 @@ use crate::shortcut::{HotkeyCombo, ShortcutManager, macos_fn::MacOsFnTap};
 pub struct AppState {
     pub audio: Box<dyn AudioSource>,
     pub vault: Box<dyn Vault>,
-    pub paster: Box<dyn Paster>,
+    /// `Arc` (not `Box`) so the async `paste_text` command can clone the
+    /// paster and move that clone into a `spawn_blocking` task — the 80 ms
+    /// pboard-settle sleep used to block one of Tauri's command-execution
+    /// threads per paste, which serialized pastes under burst load.
+    pub paster: Arc<dyn Paster>,
     pub current_hotkey: Mutex<Option<Shortcut>>,
     /// macOS Fn-key tap. Lazily initialized the first time the user picks
     /// `"Fn"` as their hotkey. Once running it survives the app lifetime
@@ -153,19 +158,30 @@ pub fn request_input_monitoring_permission() -> Result<PermissionState, String> 
         .map_err(|e| e.to_string())
 }
 
+/// Settings panel the webview can ask the OS to surface. Serde rejects any
+/// other value at deserialize time, so a typo on the JS side fails with a
+/// structured IPC error instead of round-tripping through a `match` arm as
+/// a runtime `unknown panel: ...` string. The kebab-case rename keeps the
+/// existing JS contract (`'microphone' | 'accessibility' | 'input-monitoring'`)
+/// intact — no TS-side changes needed.
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SettingsPanelKind {
+    Microphone,
+    Accessibility,
+    InputMonitoring,
+}
+
 #[tauri::command]
-pub fn open_settings_panel(panel: String) -> Result<(), String> {
+pub fn open_settings_panel(panel: SettingsPanelKind) -> Result<(), String> {
     use crate::audio::permissions::{
         open_settings_accessibility_panel, open_settings_input_monitoring_panel,
         open_settings_microphone_panel,
     };
-    match panel.as_str() {
-        "microphone" => open_settings_microphone_panel().map_err(|e| e.to_string()),
-        "accessibility" => open_settings_accessibility_panel().map_err(|e| e.to_string()),
-        "input-monitoring" => {
-            open_settings_input_monitoring_panel().map_err(|e| e.to_string())
-        }
-        other => Err(format!("unknown panel: {other}")),
+    match panel {
+        SettingsPanelKind::Microphone => open_settings_microphone_panel().map_err(|e| e.to_string()),
+        SettingsPanelKind::Accessibility => open_settings_accessibility_panel().map_err(|e| e.to_string()),
+        SettingsPanelKind::InputMonitoring => open_settings_input_monitoring_panel().map_err(|e| e.to_string()),
     }
 }
 
@@ -243,8 +259,18 @@ pub fn delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<()
 /// permission up front and return a structured `accessibility-required:` error
 /// so the React side can surface a useful message instead of "text on
 /// clipboard but nothing happened".
+///
+/// The command is `async` and the actual clipboard+keystroke work runs on the
+/// blocking thread pool via `tauri::async_runtime::spawn_blocking`. The
+/// underlying `EnigoPaster::paste_text` sleeps ~80 ms between the clipboard
+/// write and the synthetic Cmd/Ctrl+V to let `pboard` propagate; doing that
+/// inline used to tie up one of Tauri's command-execution threads for the
+/// duration. The `Paster` trait stays sync — only the command boundary
+/// changes. The JS-visible contract (command name, `text` arg, error
+/// shapes including the `accessibility-required:` and
+/// `wayland-paste-unsupported:` markers) is unchanged.
 #[tauri::command]
-pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
+pub async fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let perm = crate::audio::permissions::check_accessibility_permission();
@@ -261,7 +287,12 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
         "paste_text: dispatching {} chars to clipboard + paste keystroke",
         text.chars().count()
     );
-    let result = state.paster.paste_text(&text);
+    // Clone the `Arc<dyn Paster>` so the closure can outlive the Tauri
+    // `State` borrow (which is tied to this async fn's stack).
+    let paster = Arc::clone(&state.paster);
+    let result = tauri::async_runtime::spawn_blocking(move || paster.paste_text(&text))
+        .await
+        .map_err(|e| format!("paste_text: blocking task join failed: {e}"))?;
     #[cfg(target_os = "linux")]
     if let Err(ref e) = result {
         if e.starts_with(ERR_WAYLAND_PASTE_UNSUPPORTED) {
@@ -278,12 +309,18 @@ pub fn list_audio_input_devices() -> Vec<AudioDeviceInfo> {
     MicrophoneSource::list_devices().unwrap_or_default()
 }
 
-/// Returns true if the user-supplied combo string is the special `"Fn"`
-/// marker (case-insensitive, whitespace-tolerant) that routes to the
-/// macOS-only `CGEventTap` backend instead of the cross-platform
-/// global-shortcut plugin.
-fn is_fn_combo(combo: &str) -> bool {
-    combo.trim().eq_ignore_ascii_case("fn")
+/// Routes the raw `combo` string the JS side sends into the existing typed
+/// [`HotkeyCombo`] enum. The special case-insensitive marker `"Fn"` becomes
+/// [`HotkeyCombo::Fn`] (routed to the macOS `CGEventTap` backend);
+/// everything else is [`HotkeyCombo::Standard`] (routed to
+/// `tauri-plugin-global-shortcut`). The JS contract — a single `combo`
+/// string — is unchanged.
+fn parse_combo_input(input: &str) -> HotkeyCombo {
+    if input.trim().eq_ignore_ascii_case("fn") {
+        HotkeyCombo::Fn
+    } else {
+        HotkeyCombo::Standard { combo: input.to_string() }
+    }
 }
 
 #[tauri::command]
@@ -292,10 +329,12 @@ pub fn register_hotkey(
     state: State<'_, AppState>,
     combo: String,
 ) -> Result<String, String> {
-    if is_fn_combo(&combo) {
-        return register_fn_hotkey(&app, &state);
-    }
-    let shortcut = parse_combo(&combo).map_err(|e| e.to_string())?;
+    let parsed = parse_combo_input(&combo);
+    let combo_str = match parsed {
+        HotkeyCombo::Fn => return register_fn_hotkey(&app, &state),
+        HotkeyCombo::Standard { combo } => combo,
+    };
+    let shortcut = parse_combo(&combo_str).map_err(|e| e.to_string())?;
     let mut current = state.current_hotkey.lock().map_err(|e| e.to_string())?;
     if let Some(prev) = current.take() {
         let _ = app.global_shortcut().unregister(prev);
@@ -486,5 +525,97 @@ mod tests {
             "\"windows\""
         );
         assert_eq!(serde_json::to_string(&HostOs::Linux).unwrap(), "\"linux\"");
+    }
+
+    // ---- SettingsPanelKind: typed dispatch at the IPC boundary --------
+    //
+    // The `open_settings_panel` command used to take a `String` and dispatch
+    // via `match s.as_str()`, so a typo from the JS side round-tripped as a
+    // runtime `unknown panel: ...` error. With a `#[derive(Deserialize)]`
+    // enum and `rename_all = "kebab-case"`, serde rejects invalid values at
+    // deserialize time and the IPC layer returns a structured error instead.
+    // These tests pin the three valid kebab-case spellings the JS side sends
+    // (`'microphone' | 'accessibility' | 'input-monitoring'`) and verify
+    // that anything else is refused.
+
+    #[test]
+    fn settings_panel_kind_deserializes_microphone() {
+        let p: SettingsPanelKind = serde_json::from_str("\"microphone\"").unwrap();
+        assert_eq!(p, SettingsPanelKind::Microphone);
+    }
+
+    #[test]
+    fn settings_panel_kind_deserializes_accessibility() {
+        let p: SettingsPanelKind = serde_json::from_str("\"accessibility\"").unwrap();
+        assert_eq!(p, SettingsPanelKind::Accessibility);
+    }
+
+    #[test]
+    fn settings_panel_kind_deserializes_input_monitoring_kebab() {
+        // `rename_all = "kebab-case"` is what makes the JS-facing spelling
+        // `"input-monitoring"` align with the Rust `InputMonitoring` variant.
+        let p: SettingsPanelKind = serde_json::from_str("\"input-monitoring\"").unwrap();
+        assert_eq!(p, SettingsPanelKind::InputMonitoring);
+    }
+
+    #[test]
+    fn settings_panel_kind_rejects_unknown_value() {
+        // The IPC payload `"unknown"` should fail at deserialize time — the
+        // command handler must never see it as a `String` and dispatch a
+        // runtime-string error.
+        assert!(serde_json::from_str::<SettingsPanelKind>("\"unknown\"").is_err());
+    }
+
+    #[test]
+    fn settings_panel_kind_rejects_snake_case_input_monitoring() {
+        // Defensive: make sure snake_case doesn't accidentally pass through
+        // — the kebab-case rename is the contract with the TS side.
+        assert!(serde_json::from_str::<SettingsPanelKind>("\"input_monitoring\"").is_err());
+    }
+
+    // ---- parse_combo_input: typed dispatch for the Fn marker ----------
+    //
+    // `register_hotkey` still takes a `String` over IPC (JS contract
+    // unchanged), but internally the dispatch now goes through the existing
+    // `HotkeyCombo` enum rather than a bare string compare. These tests pin
+    // the case-insensitive, whitespace-tolerant `"Fn"` marker and that
+    // every other value parses as a `Standard { combo }`.
+
+    #[test]
+    fn parse_combo_input_recognises_fn_marker_exact() {
+        assert_eq!(parse_combo_input("Fn"), HotkeyCombo::Fn);
+    }
+
+    #[test]
+    fn parse_combo_input_recognises_fn_marker_lowercase() {
+        assert_eq!(parse_combo_input("fn"), HotkeyCombo::Fn);
+    }
+
+    #[test]
+    fn parse_combo_input_recognises_fn_marker_with_whitespace_and_caps() {
+        assert_eq!(parse_combo_input(" FN "), HotkeyCombo::Fn);
+    }
+
+    #[test]
+    fn parse_combo_input_treats_standard_combo_as_standard() {
+        assert_eq!(
+            parse_combo_input("Cmd+Shift+Space"),
+            HotkeyCombo::Standard {
+                combo: "Cmd+Shift+Space".to_string(),
+            },
+        );
+    }
+
+    #[test]
+    fn parse_combo_input_preserves_standard_combo_verbatim() {
+        // We do NOT trim or normalise standard combos here — `parse_combo`
+        // downstream handles whitespace. This pins the verbatim-passthrough
+        // contract so a future refactor doesn't silently start trimming.
+        assert_eq!(
+            parse_combo_input(" Ctrl+Alt+A "),
+            HotkeyCombo::Standard {
+                combo: " Ctrl+Alt+A ".to_string(),
+            },
+        );
     }
 }
