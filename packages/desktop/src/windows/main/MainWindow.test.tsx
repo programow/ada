@@ -65,12 +65,13 @@ import { useOnboardingGate } from '@/lib/use-onboarding-gate';
 import { MainWindow } from './MainWindow';
 
 describe('<MainWindow />', () => {
-    it('renders four tab triggers: Dashboard, History, Settings, About', () => {
+    it('renders three tab triggers: Dashboard, Settings, About', () => {
         render(<MainWindow />);
         expect(screen.getByRole('tab', { name: /dashboard/i })).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: /history/i })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /settings/i })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /about/i })).toBeInTheDocument();
+        // History was folded into the Dashboard panel; no standalone tab.
+        expect(screen.queryByRole('tab', { name: /history/i })).not.toBeInTheDocument();
     });
 
     it('shows the Dashboard panel by default', () => {
@@ -80,11 +81,14 @@ describe('<MainWindow />', () => {
         expect(screen.getByTestId('panel-dashboard')).toBeInTheDocument();
     });
 
-    it('switches to the History panel when its tab is clicked', async () => {
-        const user = userEvent.setup();
+    it('Dashboard panel contains both stats and the transcription history section', () => {
         render(<MainWindow />);
-        await user.click(screen.getByRole('tab', { name: /history/i }));
-        expect(screen.getByTestId('panel-history')).toBeInTheDocument();
+        const panel = screen.getByTestId('panel-dashboard');
+        expect(panel).toContainElement(screen.getByTestId('section-history'));
+        // Dashboard's empty-state stats render as em dashes; presence of
+        // at least one confirms the stats grid is mounted under the panel.
+        // (Component-level stat-rendering is covered by Dashboard.test.tsx.)
+        expect(panel.querySelectorAll('[class*="text-2xl"]').length).toBeGreaterThan(0);
     });
 
     it('switches to the Settings panel when its tab is clicked', async () => {

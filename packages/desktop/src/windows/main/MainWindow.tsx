@@ -116,19 +116,25 @@ export function MainWindowInner() {
             <Tabs defaultValue="dashboard" className="w-full">
                 <TabsList>
                     <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
                     <TabsTrigger value="settings">Settings</TabsTrigger>
                     <TabsTrigger value="about">About</TabsTrigger>
                 </TabsList>
-                <TabsContent value="dashboard" data-testid="panel-dashboard">
+                <TabsContent
+                    value="dashboard"
+                    data-testid="panel-dashboard"
+                    className="flex flex-col gap-6"
+                >
                     <Dashboard refreshKey={refreshKey} />
-                </TabsContent>
-                <TabsContent value="history" data-testid="panel-history">
-                    <History
-                        entries={historyEntries}
-                        onDelete={handleDelete}
-                        onExportFiltered={() => {}}
-                    />
+                    <section className="flex flex-col gap-3" data-testid="section-history">
+                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                            Recent transcriptions
+                        </h2>
+                        <History
+                            entries={historyEntries}
+                            onDelete={handleDelete}
+                            onExportFiltered={() => {}}
+                        />
+                    </section>
                 </TabsContent>
                 <TabsContent
                     value="settings"
