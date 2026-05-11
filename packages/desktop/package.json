@@ -16,7 +16,8 @@
     "test:integration": "vitest run --dir tests/integration",
     "test:functional": "vitest run --dir tests/functional",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "smoke:providers": "bun run tests/provider-smoke/run.ts"
   },
   "dependencies": {
     "@ai-sdk/assemblyai": "^2.0.33",
