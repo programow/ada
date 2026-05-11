@@ -8,7 +8,6 @@ pub mod overlay_panel;
 pub mod paste;
 pub mod platform;
 pub mod secrets;
-pub mod settings;
 pub mod shortcut;
 pub mod tray;
 
