@@ -13,6 +13,39 @@ use crate::clipboard::Clipboard;
 /// enough; we use 80 ms for headroom.
 const PBOARD_SETTLE_DELAY: Duration = Duration::from_millis(80);
 
+/// Marker prefix returned by `paste_text` on Linux Wayland sessions where
+/// `enigo`'s X11/XTest backend can't synthesise keystrokes. The webview side
+/// matches on this prefix (see `recording-controller.ts`) and renders a
+/// dedicated "text is on your clipboard" message instead of the generic
+/// paste failure.
+#[cfg(target_os = "linux")]
+const WAYLAND_FALLBACK_ERROR: &str = "wayland-paste-unsupported: Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.";
+
+/// Detects whether the current Linux session is running under Wayland.
+///
+/// Reads `XDG_SESSION_TYPE` first (set by systemd-logind on every modern
+/// distro), then falls back to checking whether `WAYLAND_DISPLAY` is set —
+/// some sway/Hyprland users leave `XDG_SESSION_TYPE` unset but still have a
+/// live Wayland compositor.
+///
+/// Takes an env-getter for testability — production callers use
+/// [`is_wayland_session`] which closes over `std::env::var`.
+#[cfg(target_os = "linux")]
+fn is_wayland_session_with<F>(get_env: F) -> bool
+where
+    F: Fn(&str) -> Option<String>,
+{
+    if let Some(session_type) = get_env("XDG_SESSION_TYPE") {
+        return session_type.eq_ignore_ascii_case("wayland");
+    }
+    get_env("WAYLAND_DISPLAY").is_some()
+}
+
+#[cfg(target_os = "linux")]
+fn is_wayland_session() -> bool {
+    is_wayland_session_with(|key| std::env::var(key).ok())
+}
+
 /// Trait abstracting "paste text into the active application" so callers can
 /// be tested without touching the real OS clipboard or synthesizing keystrokes.
 ///
@@ -62,6 +95,19 @@ impl<C: Clipboard> Paster for EnigoPaster<C> {
             log::error!("paste_text: clipboard write failed: {e}");
             e
         })?;
+        // On Linux Wayland, enigo's X11/XTest backend can't synthesise
+        // keystrokes (the `wayland`/`libei` features are experimental and
+        // not enabled in our build). Surface a structured error so the UI
+        // can tell the user to press Ctrl+V manually. The clipboard write
+        // above has already succeeded, so the text IS available — we just
+        // can't trigger the paste keystroke for them.
+        #[cfg(target_os = "linux")]
+        if is_wayland_session() {
+            log::warn!(
+                "paste_text: Wayland session detected; skipping synthetic Ctrl+V (text remains on clipboard)"
+            );
+            return Err(WAYLAND_FALLBACK_ERROR.to_string());
+        }
         // Allow pboard to propagate to other processes before the keystroke.
         sleep(PBOARD_SETTLE_DELAY);
         self.send_paste_keystroke().map_err(|e| {
@@ -169,5 +215,65 @@ mod tests {
         p.paste_text("second").unwrap();
 
         assert_eq!(clip.read_text().unwrap(), "second");
+    }
+
+    #[cfg(target_os = "linux")]
+    mod linux_wayland {
+        use super::super::{WAYLAND_FALLBACK_ERROR, is_wayland_session_with};
+        use super::*;
+
+        /// Build an env-getter that returns values from a static slice. Lets
+        /// us drive `is_wayland_session_with` deterministically without
+        /// touching the process-global env (which is racy in parallel tests).
+        fn env_from(pairs: &[(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
+            let owned: Vec<(String, String)> = pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+                .collect();
+            move |key: &str| {
+                owned
+                    .iter()
+                    .find(|(k, _)| k == key)
+                    .map(|(_, v)| v.clone())
+            }
+        }
+
+        #[test]
+        fn is_wayland_session_returns_true_when_xdg_session_type_is_wayland() {
+            let env = env_from(&[("XDG_SESSION_TYPE", "wayland")]);
+            assert!(is_wayland_session_with(env));
+        }
+
+        #[test]
+        fn is_wayland_session_is_case_insensitive_for_xdg_session_type() {
+            let env = env_from(&[("XDG_SESSION_TYPE", "Wayland")]);
+            assert!(is_wayland_session_with(env));
+        }
+
+        #[test]
+        fn is_wayland_session_returns_false_for_x11() {
+            let env = env_from(&[("XDG_SESSION_TYPE", "x11")]);
+            assert!(!is_wayland_session_with(env));
+        }
+
+        #[test]
+        fn is_wayland_session_falls_back_to_wayland_display_when_xdg_unset() {
+            // No XDG_SESSION_TYPE, but WAYLAND_DISPLAY is populated
+            // (sway/Hyprland configs sometimes look like this).
+            let env = env_from(&[("WAYLAND_DISPLAY", "wayland-0")]);
+            assert!(is_wayland_session_with(env));
+        }
+
+        #[test]
+        fn is_wayland_session_returns_false_when_both_unset() {
+            let env = env_from(&[]);
+            assert!(!is_wayland_session_with(env));
+        }
+
+        #[test]
+        fn wayland_fallback_error_uses_expected_prefix() {
+            // The webview matches on this prefix — keep them in sync.
+            assert!(WAYLAND_FALLBACK_ERROR.starts_with("wayland-paste-unsupported:"));
+        }
     }
 }

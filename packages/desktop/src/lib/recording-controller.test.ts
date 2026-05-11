@@ -50,23 +50,48 @@ describe('recording-controller toggle', () => {
             expect(typeof first.startedAt).toBe('number');
         });
 
-        it('requests permission when undetermined and starts on grant', async () => {
+        it('requests permission when undetermined and starts on grant (in order)', async () => {
             vi.mocked(deps.vox.checkMicrophonePermission).mockResolvedValueOnce('NotDetermined');
             vi.mocked(deps.vox.requestMicrophonePermission).mockResolvedValueOnce('Granted');
             const { setState, states } = makeSetState();
             await toggle({ kind: 'idle' }, deps, setState);
+            expect(deps.vox.checkMicrophonePermission).toHaveBeenCalled();
             expect(deps.vox.requestMicrophonePermission).toHaveBeenCalled();
+            // check happens before request, which happens before startRecording.
+            const checkOrder = vi.mocked(deps.vox.checkMicrophonePermission).mock
+                .invocationCallOrder[0];
+            const requestOrder = vi.mocked(deps.vox.requestMicrophonePermission).mock
+                .invocationCallOrder[0];
+            const startOrder = vi.mocked(deps.vox.startRecording).mock.invocationCallOrder[0];
+            expect(checkOrder).toBeLessThan(requestOrder ?? 0);
+            expect(requestOrder).toBeLessThan(startOrder ?? 0);
             expect(states.at(-1)?.kind).toBe('recording');
         });
 
-        it('publishes error and does not start when permission denied', async () => {
-            vi.mocked(deps.vox.checkMicrophonePermission).mockResolvedValueOnce('Denied');
+        it('publishes mic-denied error when NotDetermined → request returns Denied (no startRecording)', async () => {
+            vi.mocked(deps.vox.checkMicrophonePermission).mockResolvedValueOnce('NotDetermined');
+            vi.mocked(deps.vox.requestMicrophonePermission).mockResolvedValueOnce('Denied');
             const { setState, states } = makeSetState();
             await toggle({ kind: 'idle' }, deps, setState);
+            expect(deps.vox.requestMicrophonePermission).toHaveBeenCalled();
             expect(deps.vox.startRecording).not.toHaveBeenCalled();
             const last = states.at(-1);
             expect(last?.kind).toBe('error');
-            if (last?.kind === 'error') expect(last.message).toMatch(/microphone/i);
+            if (last?.kind === 'error') expect(last.message).toMatch(/^mic-denied:/);
+        });
+
+        it('publishes mic-denied error and does NOT request when already Denied', async () => {
+            vi.mocked(deps.vox.checkMicrophonePermission).mockResolvedValueOnce('Denied');
+            const { setState, states } = makeSetState();
+            await toggle({ kind: 'idle' }, deps, setState);
+            expect(deps.vox.requestMicrophonePermission).not.toHaveBeenCalled();
+            expect(deps.vox.startRecording).not.toHaveBeenCalled();
+            const last = states.at(-1);
+            expect(last?.kind).toBe('error');
+            if (last?.kind === 'error') {
+                expect(last.message).toMatch(/^mic-denied:/);
+                expect(last.message).toMatch(/System Settings/);
+            }
         });
 
         it('publishes error when start_recording itself fails', async () => {
@@ -121,6 +146,43 @@ describe('recording-controller toggle', () => {
             const { setState, states } = makeSetState();
             await toggle(recState, deps, setState);
             expect(states.map((s) => s.kind)).toEqual(['transcribing', 'error']);
+        });
+
+        it('surfaces a Wayland-specific friendly message when paste returns wayland-paste-unsupported', async () => {
+            vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
+                new Error(
+                    'wayland-paste-unsupported: Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.',
+                ),
+            );
+            const { setState, states } = makeSetState();
+            await toggle(recState, deps, setState);
+            expect(states.map((s) => s.kind)).toEqual(['transcribing', 'error']);
+            const last = states.at(-1);
+            if (last?.kind !== 'error') {
+                throw new Error(`expected error state, got ${last?.kind}`);
+            }
+            expect(last.message).toMatch(/Wayland/);
+            expect(last.message).toMatch(/Ctrl\+V/);
+            // Should NOT include the macOS-specific Accessibility wording.
+            expect(last.message).not.toMatch(/Accessibility/);
+        });
+
+        it('surfaces an Accessibility-specific friendly message when paste returns accessibility-required', async () => {
+            vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
+                new Error(
+                    'accessibility-required: synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.',
+                ),
+            );
+            const { setState, states } = makeSetState();
+            await toggle(recState, deps, setState);
+            const last = states.at(-1);
+            if (last?.kind !== 'error') {
+                throw new Error(`expected error state, got ${last?.kind}`);
+            }
+            expect(last.message).toMatch(/Accessibility/);
+            expect(last.message).toMatch(/Cmd\+V/);
+            // Should NOT include the Wayland wording.
+            expect(last.message).not.toMatch(/Wayland/);
         });
     });
 
