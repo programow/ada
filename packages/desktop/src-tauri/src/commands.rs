@@ -117,8 +117,31 @@ pub fn delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<()
 
 /// Combined clipboard write + paste keystroke (Cmd+V on macOS, Ctrl+V
 /// elsewhere). The paster owns the clipboard internally per spec §6.10.
+///
+/// On macOS, `enigo` synthesises the keystroke via `CGEventPost`, which silently
+/// no-ops when the bound process lacks Accessibility permission. We probe the
+/// permission up front and return a structured `accessibility-required:` error
+/// so the React side can surface a useful message instead of "text on
+/// clipboard but nothing happened".
 #[tauri::command]
 pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let perm = crate::audio::permissions::check_accessibility_permission();
+        if perm != crate::audio::PermissionState::Granted {
+            log::warn!(
+                "paste_text: Accessibility permission not granted; keystroke will silently no-op"
+            );
+            return Err(
+                "accessibility-required: synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again."
+                    .to_string(),
+            );
+        }
+    }
+    log::info!(
+        "paste_text: dispatching {} chars to clipboard + paste keystroke",
+        text.chars().count()
+    );
     state.paster.paste_text(&text)
 }
 

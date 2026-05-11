@@ -73,10 +73,21 @@ async function stopAndTranscribe(
         setState({ kind: 'transcribing' });
         const blob = new Blob([new Uint8Array(bytes)], { type: 'audio/wav' });
         const text = await deps.transcribe(blob);
-        await deps.vox.pasteText(text);
 
-        // Persist after paste succeeds. A history-write failure must not
-        // un-paste the text, so swallow + log instead of bubbling up.
+        let pasteFailed: string | null = null;
+        try {
+            await deps.vox.pasteText(text);
+        } catch (pasteErr) {
+            // Don't lose the transcription — the text is on the clipboard
+            // either way. We just couldn't synthesise Cmd+V. Surface the
+            // error to the UI but still save to history.
+            pasteFailed = errMessage(pasteErr);
+            console.error('pasteText failed', pasteErr);
+        }
+
+        // Persist after paste attempt (success or failure — the transcription
+        // still happened and the user paid for it). A history-write failure
+        // must not un-paste the text, so swallow + log instead of bubbling up.
         const save = deps.saveTranscription ?? saveTranscription;
         const resolveConfig = deps.resolveActiveConfig ?? defaultResolveActiveConfig;
         try {
@@ -91,6 +102,15 @@ async function stopAndTranscribe(
             }
         } catch (saveErr) {
             console.error('saveTranscription failed', saveErr);
+        }
+
+        if (pasteFailed) {
+            // Translate the well-known Accessibility marker into a helpful UI message.
+            const friendly = pasteFailed.includes('accessibility-required')
+                ? "Couldn't paste — Vox Era needs Accessibility permission. Text is on your clipboard; press Cmd+V to paste manually. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again."
+                : `Couldn't paste: ${pasteFailed}. The text is on your clipboard; press Cmd+V to paste it.`;
+            setState({ kind: 'error', message: friendly });
+            return;
         }
 
         setState({ kind: 'idle' });
