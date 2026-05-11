@@ -59,10 +59,10 @@ export function SettingsModelConfigs() {
                                 data-testid={`model-config-row-${c.id}`}
                                 data-active={active ? 'true' : 'false'}
                                 className={cn(
-                                    'flex items-stretch border-3 border-border transition-colors',
+                                    'flex items-stretch rounded-xl border transition-colors',
                                     active
-                                        ? 'bg-main text-main-foreground'
-                                        : 'bg-bg hover:bg-main/10',
+                                        ? 'border-main bg-main/10 text-fg'
+                                        : 'border-border bg-muted/40 hover:bg-muted',
                                 )}
                             >
                                 <button

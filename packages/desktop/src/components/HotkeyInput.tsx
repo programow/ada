@@ -102,7 +102,7 @@ export function HotkeyInput({
         <div className="flex items-center gap-2">
             <span
                 data-testid="hotkey-display"
-                className="inline-flex h-10 min-w-[12rem] items-center border-3 border-border bg-bg px-3 text-sm font-bold uppercase tracking-widest shadow-neo"
+                className="inline-flex h-10 min-w-[12rem] items-center rounded-xl border border-border bg-muted px-3 text-sm font-semibold tracking-wider"
             >
                 {capturing ? 'Press a key combo…' : value}
             </span>

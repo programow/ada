@@ -37,7 +37,7 @@ export function SettingsApiKeys() {
                         <div
                             key={k.id}
                             data-testid={`api-key-row-${k.id}`}
-                            className="flex items-center justify-between border-3 border-border bg-bg px-3 py-2"
+                            className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3"
                         >
                             <div>
                                 <div className="text-xs font-bold uppercase tracking-widest">

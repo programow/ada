@@ -140,13 +140,13 @@ export function MainWindowInner() {
                     className="flex flex-col gap-6"
                 >
                     <section className="flex flex-col gap-3" data-testid="section-stats">
-                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                             Statistics
                         </h2>
                         <Dashboard refreshKey={refreshKey} />
                     </section>
                     <section className="flex flex-col gap-3" data-testid="section-history">
-                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                             Recent transcriptions
                         </h2>
                         <History

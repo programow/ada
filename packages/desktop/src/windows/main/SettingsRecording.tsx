@@ -245,7 +245,7 @@ export function SettingsRecording() {
                     <div className="flex items-center gap-2">
                         <select
                             id={deviceId}
-                            className="h-10 flex-1 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                            className="h-10 flex-1 rounded-xl border border-border bg-surface px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40 focus-visible:border-main"
                             value={selectedDevice}
                             onChange={(e) => void handleDeviceChange(e.target.value)}
                         >

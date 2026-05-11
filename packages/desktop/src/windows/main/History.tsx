@@ -89,7 +89,7 @@ export function History({ entries, pageSize = 25, onDelete, onExportFiltered }: 
                     <Label htmlFor={providerSelectId}>Provider</Label>
                     <select
                         id={providerSelectId}
-                        className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                        className="h-10 rounded-xl border border-border bg-surface px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40 focus-visible:border-main"
                         value={providerFilter}
                         onChange={(e) => {
                             setProviderFilter(e.target.value);
