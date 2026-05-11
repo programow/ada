@@ -8,6 +8,7 @@ vi.mock('@/lib/invoke', () => ({
         startRecording: vi.fn(),
         stopRecording: vi.fn(),
         registerHotkey: vi.fn(),
+        getPlatformInfo: vi.fn(async () => ({ os: 'macos', isWayland: false })),
     },
 }));
 vi.mock('@/lib/db', () => ({

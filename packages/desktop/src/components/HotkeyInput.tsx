@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { usePlatform } from '@/lib/use-platform';
 import { useEffect, useState } from 'react';
 
 export interface HotkeyInputProps {
@@ -18,11 +19,6 @@ export interface HotkeyInputProps {
      * is provided, clicking "Use Fn" only calls this; it does NOT also
      * call `onChange('Fn')` directly — the receiver decides when to commit. */
     onUseFnRequested?: () => void;
-}
-
-function isMacPlatform(): boolean {
-    if (typeof navigator === 'undefined') return false;
-    return /Mac|iPhone|iPad/i.test(navigator.platform);
 }
 
 function formatFromEvent(e: KeyboardEvent): string | null {
@@ -66,6 +62,12 @@ export function HotkeyInput({
     onUseFnRequested,
 }: HotkeyInputProps) {
     const [capturing, setCapturing] = useState(false);
+    const platform = usePlatform();
+    // While the first fetch is in flight `platform` is null; treat that as
+    // "not macOS" so the Fn-key button stays hidden until we know for sure.
+    // The cache is warmed at app launch via the onboarding gate, so this
+    // null window is effectively a single tick on first paint.
+    const isMac = platform?.os === 'macos';
 
     useEffect(() => {
         if (!capturing) return;
@@ -105,7 +107,7 @@ export function HotkeyInput({
                 {capturing ? 'Press a key combo…' : value}
             </span>
             <Button onClick={toggle}>{capturing ? 'Cancel' : 'Capture…'}</Button>
-            {isMacPlatform() && (
+            {isMac && (
                 <Button
                     variant="outline"
                     onClick={() => {

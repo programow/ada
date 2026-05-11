@@ -35,6 +35,7 @@ vi.mock('@/lib/invoke', () => ({
         stopRecording: vi.fn(async () => []),
         registerHotkey: vi.fn(async () => 'Cmd+Shift+Space'),
         unregisterHotkey: vi.fn(async () => undefined),
+        getPlatformInfo: vi.fn(async () => ({ os: 'macos', isWayland: false })),
     },
 }));
 

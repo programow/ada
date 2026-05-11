@@ -1,6 +1,7 @@
 import * as core from '@tauri-apps/api/core';
 import Database from '@tauri-apps/plugin-sql';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetPlatformCacheForTests } from './use-platform';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 
@@ -52,6 +53,7 @@ beforeEach(() => {
     fakeDb.select.mockReset();
     fakeDb.execute.mockResolvedValue({ rowsAffected: 1, lastInsertId: 0 });
     vi.mocked(Database.load).mockClear();
+    __resetPlatformCacheForTests();
 });
 
 describe('db.listApiKeys', () => {
@@ -419,10 +421,15 @@ describe('db.selectedMicDeviceId', () => {
 });
 
 describe('db.hotkeyCombo', () => {
-    it('returns the platform default when not set', async () => {
+    it('returns the macOS default when not set on macOS', async () => {
         fakeDb.select.mockResolvedValueOnce([]);
-        const combo = await getHotkeyCombo();
-        expect(combo === 'Cmd+Shift+Space' || combo === 'Ctrl+Shift+Space').toBe(true);
+        vi.mocked(core.invoke).mockResolvedValueOnce({ os: 'macos', isWayland: false });
+        await expect(getHotkeyCombo()).resolves.toBe('Cmd+Shift+Space');
+    });
+    it('returns the non-macOS default when not set on Windows/Linux', async () => {
+        fakeDb.select.mockResolvedValueOnce([]);
+        vi.mocked(core.invoke).mockResolvedValueOnce({ os: 'windows', isWayland: false });
+        await expect(getHotkeyCombo()).resolves.toBe('Ctrl+Shift+Space');
     });
     it('returns the persisted combo', async () => {
         fakeDb.select.mockResolvedValueOnce([{ value: 'Cmd+Alt+R' }]);

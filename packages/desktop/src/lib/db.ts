@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import Database from '@tauri-apps/plugin-sql';
+import { DEFAULT_HOTKEY_MAC, DEFAULT_HOTKEY_OTHER } from './defaults';
+import { getPlatform } from './use-platform';
 
 const DB_URL = 'sqlite:vox-era.db';
 const ACTIVE_MODEL_CONFIG_KEY = 'active_model_config_id';
@@ -280,10 +282,15 @@ export async function setSelectedMicDeviceId(id: string | null): Promise<void> {
     );
 }
 
-function defaultHotkeyCombo(): string {
-    // Detect macOS without DOM (in tests we are happy-dom; this branch is taken).
-    const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform);
-    return isMac ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
+/**
+ * Resolves the platform-appropriate default hotkey by asking Rust which
+ * OS we're on (cached, single round-trip per process). Replaces the
+ * legacy deprecated-DOM sniff that could return an empty string on newer
+ * Chromium builds.
+ */
+async function defaultHotkeyCombo(): Promise<string> {
+    const p = await getPlatform();
+    return p.os === 'macos' ? DEFAULT_HOTKEY_MAC : DEFAULT_HOTKEY_OTHER;
 }
 
 export async function getHotkeyCombo(): Promise<string> {
@@ -291,7 +298,7 @@ export async function getHotkeyCombo(): Promise<string> {
     const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
         HOTKEY_COMBO_KEY,
     ])) as { value: string }[];
-    return rows[0]?.value ?? defaultHotkeyCombo();
+    return rows[0]?.value ?? (await defaultHotkeyCombo());
 }
 
 export async function setHotkeyCombo(combo: string): Promise<void> {
