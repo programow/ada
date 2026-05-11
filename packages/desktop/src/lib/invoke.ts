@@ -23,6 +23,11 @@ export const vox = {
     registerHotkey: (combo: string) => invoke<string>('register_hotkey', { combo }),
     unregisterHotkey: () => invoke<void>('unregister_hotkey'),
 
+    /** macOS only: read the AppleFnUsageType setting (0..3) or null if unset. */
+    getFnUsageType: () => invoke<number | null>('get_fn_usage_type'),
+    /** macOS only: write AppleFnUsageType + restart cfprefsd. */
+    setFnUsageType: (value: number) => invoke<void>('set_fn_usage_type', { value }),
+
     getSecret: (secretId: string) => invoke<string | null>('get_secret', { secretId }),
     setSecret: (secretId: string, key: string) => invoke<void>('set_secret', { secretId, key }),
     deleteSecret: (secretId: string) => invoke<void>('delete_secret', { secretId }),

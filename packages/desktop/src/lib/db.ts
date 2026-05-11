@@ -8,6 +8,7 @@ const OVERLAY_X_KEY = 'overlay_x';
 const OVERLAY_Y_KEY = 'overlay_y';
 const SELECTED_MIC_DEVICE_KEY = 'selected_mic_device_id';
 const HOTKEY_COMBO_KEY = 'hotkey_combo';
+const FN_USAGE_TYPE_ORIGINAL_KEY = 'fn_usage_type_original';
 const RETENTION_DAYS_KEY = 'history_retention_days';
 const HISTORY_LAST_SWEEP_KEY = 'history_last_sweep';
 const SOFT_DELETE_GRACE_DAYS = 30;
@@ -299,6 +300,35 @@ export async function setHotkeyCombo(combo: string): Promise<void> {
         'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
         [HOTKEY_COMBO_KEY, combo],
     );
+}
+
+/**
+ * Returns the AppleFnUsageType value that was in place before Vox Era changed
+ * it, or null if Vox Era has never modified the system setting. Used to
+ * restore the user's original preference when they switch away from the Fn
+ * hotkey.
+ */
+export async function getOriginalFnUsageType(): Promise<number | null> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        FN_USAGE_TYPE_ORIGINAL_KEY,
+    ])) as { value: string }[];
+    if (!rows[0]) return null;
+    const n = Number.parseInt(rows[0].value, 10);
+    return Number.isFinite(n) ? n : null;
+}
+
+export async function setOriginalFnUsageType(value: number): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [FN_USAGE_TYPE_ORIGINAL_KEY, String(value)],
+    );
+}
+
+export async function clearOriginalFnUsageType(): Promise<void> {
+    const conn = await db();
+    await conn.execute('DELETE FROM app_state WHERE key = ?', [FN_USAGE_TYPE_ORIGINAL_KEY]);
 }
 
 function countWords(text: string): number {

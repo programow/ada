@@ -3,13 +3,27 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
+    clearOriginalFnUsageType,
     getHotkeyCombo,
+    getOriginalFnUsageType,
     getSelectedMicDeviceId,
     setHotkeyCombo,
+    setOriginalFnUsageType,
     setSelectedMicDeviceId,
 } from '@/lib/db';
 import { type AudioDeviceInfo, vox } from '@/lib/invoke';
 import { useCallback, useEffect, useId, useState } from 'react';
+
+const FN_USAGE_LABEL: Record<number, string> = {
+    0: 'Do Nothing',
+    1: 'Change Input Source',
+    2: 'Show Emoji & Symbols',
+    3: 'Start Dictation',
+};
+
+function fnUsageLabel(value: number): string {
+    return FN_USAGE_LABEL[value] ?? `Unknown (${value})`;
+}
 
 export function SettingsRecording() {
     const hotkeyId = useId();
@@ -23,6 +37,14 @@ export function SettingsRecording() {
     const [testError, setTestError] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [hotkeyError, setHotkeyError] = useState<string | null>(null);
+    /**
+     * When non-null, the user has clicked "Use Fn" but the macOS
+     * `AppleFnUsageType` setting is something other than 0 ("Do Nothing"),
+     * so we surface a confirmation panel before mutating a global system
+     * setting. `previous` captures the value to persist as the
+     * restore-on-revert target.
+     */
+    const [pendingFnSetup, setPendingFnSetup] = useState<{ previous: number } | null>(null);
 
     const refreshDevices = useCallback(async () => {
         try {
@@ -51,8 +73,23 @@ export function SettingsRecording() {
     }
 
     async function handleHotkeyChange(combo: string) {
+        const previousCombo = hotkey;
         setHotkey(combo);
         await setHotkeyCombo(combo);
+        // If the user is moving AWAY from Fn back to a standard combo and we
+        // previously stashed their original AppleFnUsageType, restore it now
+        // so we don't leave the system setting in our state forever.
+        if (previousCombo.trim().toLowerCase() === 'fn' && combo.trim().toLowerCase() !== 'fn') {
+            try {
+                const original = await getOriginalFnUsageType();
+                if (original !== null) {
+                    await vox.setFnUsageType(original);
+                    await clearOriginalFnUsageType();
+                }
+            } catch (e) {
+                console.error('restore AppleFnUsageType failed', e);
+            }
+        }
         try {
             await vox.registerHotkey(combo);
             setHotkeyError(null);
@@ -73,6 +110,45 @@ export function SettingsRecording() {
                 setHotkeyError(msg);
             }
         }
+    }
+
+    /**
+     * User clicked "Use Fn". We need the macOS `AppleFnUsageType` setting to
+     * be 0 ("Do Nothing") so the Fn key fires `FlagsChanged` events instead
+     * of getting consumed by the system input-source switcher / emoji popup
+     * / dictation. If it's already 0, register Fn directly; otherwise show a
+     * confirmation panel and let the user decide.
+     */
+    async function handleUseFnRequested() {
+        setHotkeyError(null);
+        try {
+            const current = await vox.getFnUsageType();
+            if (current === null || current === 0) {
+                await handleHotkeyChange('Fn');
+                return;
+            }
+            setPendingFnSetup({ previous: current });
+        } catch (e) {
+            setHotkeyError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    async function handleConfirmFnSetup() {
+        if (!pendingFnSetup) return;
+        try {
+            // Stash the original BEFORE writing 0, so a crash mid-flow
+            // leaves us a record we can restore from on next launch.
+            await setOriginalFnUsageType(pendingFnSetup.previous);
+            await vox.setFnUsageType(0);
+            setPendingFnSetup(null);
+            await handleHotkeyChange('Fn');
+        } catch (e) {
+            setHotkeyError(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    function handleCancelFnSetup() {
+        setPendingFnSetup(null);
     }
 
     async function handleCaptureStart() {
@@ -129,6 +205,7 @@ export function SettingsRecording() {
                             onChange={handleHotkeyChange}
                             onCaptureStart={() => void handleCaptureStart()}
                             onCaptureCancel={() => void handleCaptureCancel()}
+                            onUseFnRequested={() => void handleUseFnRequested()}
                         />
                     </div>
                     {hotkeyError && (
@@ -138,6 +215,28 @@ export function SettingsRecording() {
                         >
                             {hotkeyError}
                         </p>
+                    )}
+                    {pendingFnSetup && (
+                        <div
+                            data-testid="fn-setup-confirm"
+                            className="flex flex-col gap-2 border-3 border-border bg-yellow-100 p-3"
+                        >
+                            <p>
+                                To use Fn, macOS needs <strong>Press 🌐 key to</strong> set to{' '}
+                                <strong>Do Nothing</strong> (currently:{' '}
+                                <strong>{fnUsageLabel(pendingFnSetup.previous)}</strong>). This is a
+                                global system setting. Vox Era will restore your original value
+                                automatically when you switch away from Fn.
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={handleCancelFnSetup}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={() => void handleConfirmFnSetup()}>
+                                    Set automatically
+                                </Button>
+                            </div>
+                        </div>
                     )}
                 </div>
                 <div className="flex flex-col gap-1">

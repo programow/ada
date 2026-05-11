@@ -217,3 +217,67 @@ pub fn unregister_hotkey(
     // combo just leaves the tap dormant (it only fires on Fn presses).
     Ok(())
 }
+
+/// Read `defaults read com.apple.HIToolbox AppleFnUsageType`.
+/// Returns `None` when the key has never been set (factory default).
+/// 0 = Do Nothing, 1 = Change Input Source, 2 = Show Emoji & Symbols, 3 = Start Dictation.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub fn get_fn_usage_type() -> Result<Option<i32>, String> {
+    let output = std::process::Command::new("defaults")
+        .args(["read", "com.apple.HIToolbox", "AppleFnUsageType"])
+        .output()
+        .map_err(|e| format!("defaults read failed to launch: {e}"))?;
+    if !output.status.success() {
+        // `defaults read` exits non-zero when the key isn't set yet.
+        return Ok(None);
+    }
+    let s = String::from_utf8_lossy(&output.stdout);
+    let trimmed = s.trim();
+    let n = trimmed
+        .parse::<i32>()
+        .map_err(|e| format!("unexpected defaults output {trimmed:?}: {e}"))?;
+    Ok(Some(n))
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub fn get_fn_usage_type() -> Result<Option<i32>, String> {
+    Err("Fn usage type is a macOS-only setting".into())
+}
+
+/// Write `defaults write com.apple.HIToolbox AppleFnUsageType -int <value>` and
+/// `killall cfprefsd` so the change takes effect immediately without a logout.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub fn set_fn_usage_type(value: i32) -> Result<(), String> {
+    let status = std::process::Command::new("defaults")
+        .args([
+            "write",
+            "com.apple.HIToolbox",
+            "AppleFnUsageType",
+            "-int",
+            &value.to_string(),
+        ])
+        .status()
+        .map_err(|e| format!("defaults write failed to launch: {e}"))?;
+    if !status.success() {
+        return Err(format!(
+            "defaults write exited with status {}",
+            status.code().unwrap_or(-1)
+        ));
+    }
+    // cfprefsd caches plists in-memory; without killing it the new value
+    // is only picked up after the next logout.
+    let _ = std::process::Command::new("killall")
+        .arg("cfprefsd")
+        .status();
+    log::info!("AppleFnUsageType set to {value}");
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub fn set_fn_usage_type(_value: i32) -> Result<(), String> {
+    Err("Fn usage type is a macOS-only setting".into())
+}

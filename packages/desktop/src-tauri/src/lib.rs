@@ -57,6 +57,8 @@ pub fn run() {
             commands::paste_text,
             commands::register_hotkey,
             commands::unregister_hotkey,
+            commands::get_fn_usage_type,
+            commands::set_fn_usage_type,
         ])
         .setup(|app| {
             log::info!("voxera setup: building AppState with TauriClipboard");

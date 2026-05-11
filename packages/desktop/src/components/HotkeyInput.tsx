@@ -12,6 +12,12 @@ export interface HotkeyInputProps {
      * Receivers should re-register the previous shortcut. Capture-completion
      * with a new value goes through `onChange` and does NOT fire this. */
     onCaptureCancel?: () => void;
+    /** Fires when the user clicks the "Use Fn" button (macOS only).
+     * Receivers may need to coordinate with the OS (e.g. flip the macOS
+     * "Press 🌐 key to:" setting) before calling `onChange('Fn')`. When this
+     * is provided, clicking "Use Fn" only calls this; it does NOT also
+     * call `onChange('Fn')` directly — the receiver decides when to commit. */
+    onUseFnRequested?: () => void;
 }
 
 function isMacPlatform(): boolean {
@@ -57,6 +63,7 @@ export function HotkeyInput({
     onChange,
     onCaptureStart,
     onCaptureCancel,
+    onUseFnRequested,
 }: HotkeyInputProps) {
     const [capturing, setCapturing] = useState(false);
 
@@ -101,7 +108,13 @@ export function HotkeyInput({
             {isMacPlatform() && (
                 <Button
                     variant="outline"
-                    onClick={() => onChange('Fn')}
+                    onClick={() => {
+                        if (onUseFnRequested) {
+                            onUseFnRequested();
+                        } else {
+                            onChange('Fn');
+                        }
+                    }}
                     title="Use the macOS Fn key. Requires Accessibility permission."
                 >
                     Use Fn
