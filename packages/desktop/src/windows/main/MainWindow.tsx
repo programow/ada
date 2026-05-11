@@ -4,7 +4,7 @@ import { Toast } from '@/components/ui/toast';
 import { useHotkeyRecording } from '@/hooks/useHotkeyRecording';
 import { listTranscriptions, restoreTranscription, softDeleteTranscription } from '@/lib/db';
 import { useOnboardingGate } from '@/lib/use-onboarding-gate';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dashboard } from './Dashboard';
 import { History, type HistoryEntry } from './History';
 import { OnboardingScreen } from './OnboardingScreen';
@@ -82,12 +82,23 @@ export function MainWindowInner() {
         }
     }, []);
 
+    // Load history once on mount.
     useEffect(() => {
         void loadHistory();
-        if (recordingState.kind === 'idle') {
+    }, [loadHistory]);
+
+    // Reload history + bump stats refresh key only on the edge where the
+    // recording state transitions back to idle (e.g. transcribing -> idle
+    // or error -> idle), not on every render where kind happens to be idle.
+    const prevKindRef = useRef(recordingState.kind);
+    useEffect(() => {
+        const prev = prevKindRef.current;
+        prevKindRef.current = recordingState.kind;
+        if (prev !== 'idle' && recordingState.kind === 'idle') {
+            void loadHistory();
             setRefreshKey((k) => k + 1);
         }
-    }, [loadHistory, recordingState.kind]);
+    }, [recordingState.kind, loadHistory]);
 
     async function handleDelete(rowId: string) {
         const id = Number(rowId);

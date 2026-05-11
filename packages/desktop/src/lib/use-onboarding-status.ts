@@ -48,6 +48,7 @@ export function useOnboardingStatus(): OnboardingStatus {
     const [permissions, setPermissions] = useState<RequiredPermissions | null>(null);
     const [statuses, setStatuses] = useState<StatusMap>({});
     const inFlightRef = useRef(false);
+    const loadingRef = useRef(true);
 
     const refresh = useCallback(async () => {
         if (inFlightRef.current) return;
@@ -83,7 +84,10 @@ export function useOnboardingStatus(): OnboardingStatus {
         async function tick() {
             await refresh();
             if (cancelled) return;
-            if (loading) setLoading(false);
+            if (loadingRef.current) {
+                loadingRef.current = false;
+                setLoading(false);
+            }
             timer = setTimeout(() => void tick(), 1000);
         }
 
@@ -94,8 +98,9 @@ export function useOnboardingStatus(): OnboardingStatus {
         };
         // refresh closure captures `platform`/`permissions`; both are stable
         // after first read, so re-running the effect on their change is a
-        // no-op other than re-seeding the interval.
-    }, [refresh, loading]);
+        // no-op other than re-seeding the interval. `loading` is intentionally
+        // tracked via `loadingRef` so flipping it doesn't re-arm the timer.
+    }, [refresh]);
 
     const allGranted =
         permissions !== null &&
