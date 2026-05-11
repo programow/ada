@@ -1,4 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::Mutex;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -107,11 +109,15 @@ impl<C: Clipboard> Paster for EnigoPaster<C> {
 /// keystrokes. The clipboard write is still performed against the supplied
 /// `Clipboard` so callers can assert clipboard state and recorded calls
 /// independently.
+///
+/// Gated to `#[cfg(test)]` so it is excluded from the release binary.
+#[cfg(test)]
 pub struct RecordingPaster<C: Clipboard> {
     clipboard: Arc<C>,
     recorded: Mutex<Vec<String>>,
 }
 
+#[cfg(test)]
 impl<C: Clipboard> RecordingPaster<C> {
     pub fn new(clipboard: Arc<C>) -> Self {
         Self {
@@ -129,6 +135,7 @@ impl<C: Clipboard> RecordingPaster<C> {
     }
 }
 
+#[cfg(test)]
 impl<C: Clipboard> Paster for RecordingPaster<C> {
     fn paste_text(&self, text: &str) -> Result<(), String> {
         self.clipboard.write_text(text)?;

@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub mod mock;
 pub mod parse;
-pub mod standard;
 
 #[cfg(target_os = "macos")]
 pub mod macos_fn;
@@ -40,8 +38,10 @@ pub enum ShortcutError {
 
 /// Cross-platform contract for hotkey backends.
 ///
-/// Production wires [`standard::StandardShortcut`] for [`HotkeyCombo::Standard`]
-/// and (on macOS) [`macos_fn::MacOsFnTap`] for [`HotkeyCombo::Fn`].
+/// Production wires standard hotkey registration inline in
+/// [`crate::commands::register_hotkey`] via `app.global_shortcut().on_shortcut(...)`
+/// for [`HotkeyCombo::Standard`], and (on macOS) [`macos_fn::MacOsFnTap`]
+/// for [`HotkeyCombo::Fn`].
 pub trait ShortcutManager: Send + Sync {
     fn register(&self, combo: HotkeyCombo) -> Result<(), ShortcutError>;
     fn unregister(&self) -> Result<(), ShortcutError>;

@@ -1,6 +1,7 @@
 use zeroize::Zeroizing;
 
 pub mod keyring_vault;
+#[cfg(test)]
 pub mod mock;
 
 pub const SERVICE_NAME: &str = "vox-era";
