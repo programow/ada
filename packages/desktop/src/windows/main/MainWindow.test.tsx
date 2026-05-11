@@ -65,13 +65,13 @@ import { useOnboardingGate } from '@/lib/use-onboarding-gate';
 import { MainWindow } from './MainWindow';
 
 describe('<MainWindow />', () => {
-    it('renders three tab triggers: Dashboard, Settings, About', () => {
+    it('renders two tab triggers: Dashboard, Settings', () => {
         render(<MainWindow />);
         expect(screen.getByRole('tab', { name: /dashboard/i })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /settings/i })).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: /about/i })).toBeInTheDocument();
-        // History was folded into the Dashboard panel; no standalone tab.
+        // History was folded into the Dashboard panel; About was removed.
         expect(screen.queryByRole('tab', { name: /history/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: /about/i })).not.toBeInTheDocument();
     });
 
     it('shows the Dashboard panel by default', () => {
@@ -81,14 +81,13 @@ describe('<MainWindow />', () => {
         expect(screen.getByTestId('panel-dashboard')).toBeInTheDocument();
     });
 
-    it('Dashboard panel contains both stats and the transcription history section', () => {
+    it('Dashboard panel contains both the Statistics and Recent transcriptions sections', () => {
         render(<MainWindow />);
         const panel = screen.getByTestId('panel-dashboard');
+        expect(panel).toContainElement(screen.getByTestId('section-stats'));
         expect(panel).toContainElement(screen.getByTestId('section-history'));
-        // Dashboard's empty-state stats render as em dashes; presence of
-        // at least one confirms the stats grid is mounted under the panel.
-        // (Component-level stat-rendering is covered by Dashboard.test.tsx.)
-        expect(panel.querySelectorAll('[class*="text-2xl"]').length).toBeGreaterThan(0);
+        expect(screen.getByRole('heading', { name: /statistics/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /recent transcriptions/i })).toBeInTheDocument();
     });
 
     it('switches to the Settings panel when its tab is clicked', async () => {
@@ -96,13 +95,6 @@ describe('<MainWindow />', () => {
         render(<MainWindow />);
         await user.click(screen.getByRole('tab', { name: /settings/i }));
         expect(screen.getByTestId('panel-settings')).toBeInTheDocument();
-    });
-
-    it('switches to the About panel when its tab is clicked', async () => {
-        const user = userEvent.setup();
-        render(<MainWindow />);
-        await user.click(screen.getByRole('tab', { name: /about/i }));
-        expect(screen.getByTestId('panel-about')).toBeInTheDocument();
     });
 
     it('renders a loading state while the onboarding gate is undecided', () => {

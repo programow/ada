@@ -117,14 +117,18 @@ export function MainWindowInner() {
                 <TabsList>
                     <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
                     <TabsTrigger value="settings">Settings</TabsTrigger>
-                    <TabsTrigger value="about">About</TabsTrigger>
                 </TabsList>
                 <TabsContent
                     value="dashboard"
                     data-testid="panel-dashboard"
                     className="flex flex-col gap-6"
                 >
-                    <Dashboard refreshKey={refreshKey} />
+                    <section className="flex flex-col gap-3" data-testid="section-stats">
+                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                            Statistics
+                        </h2>
+                        <Dashboard refreshKey={refreshKey} />
+                    </section>
                     <section className="flex flex-col gap-3" data-testid="section-history">
                         <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
                             Recent transcriptions
@@ -148,9 +152,6 @@ export function MainWindowInner() {
                     <SettingsHistory />
                     <SettingsTheme />
                     <SettingsUpdates />
-                </TabsContent>
-                <TabsContent value="about" data-testid="panel-about">
-                    <p className="text-sm opacity-60">About placeholder.</p>
                 </TabsContent>
             </Tabs>
             <Toast
