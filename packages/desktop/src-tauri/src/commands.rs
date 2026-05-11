@@ -89,6 +89,24 @@ pub fn stop_recording(
     state.audio.stop_capture(&session).map_err(|e| e.to_string())
 }
 
+/// Returns the loudest sample amplitude observed since the previous call,
+/// normalized to 0.0..=1.0. The Rust side resets the tracked peak on each
+/// read, so polling this at ~12 Hz produces a smooth meter that decays
+/// naturally to zero when the user stops speaking.
+///
+/// Returns 0.0 when the session isn't known to the audio source (e.g. the
+/// mock impl doesn't track levels) so the UI never has to special-case a
+/// missing meter.
+#[tauri::command]
+pub fn get_recording_level(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<f32, String> {
+    let id = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    let session = CaptureSession { id };
+    Ok(state.audio.peak_level(&session).unwrap_or(0.0))
+}
+
 #[tauri::command]
 pub fn get_secret(
     state: State<'_, AppState>,

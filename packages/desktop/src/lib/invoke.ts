@@ -19,6 +19,12 @@ export const vox = {
     listAudioInputDevices: () => invoke<AudioDeviceInfo[]>('list_audio_input_devices'),
     startRecording: (deviceId?: string) => invoke<string>('start_recording', { deviceId }),
     stopRecording: (sessionId: string) => invoke<number[]>('stop_recording', { sessionId }),
+    /**
+     * Read the loudest sample amplitude (0..1) observed since the previous
+     * call. The Rust side resets the tracked peak on each read, so polling
+     * this drives a real-time meter that decays naturally to zero.
+     */
+    getRecordingLevel: (sessionId: string) => invoke<number>('get_recording_level', { sessionId }),
 
     registerHotkey: (combo: string) => invoke<string>('register_hotkey', { combo }),
     unregisterHotkey: () => invoke<void>('unregister_hotkey'),

@@ -10,6 +10,13 @@ export type OverlayState =
 export interface OverlayWindowProps {
     state: OverlayState;
     onStop?: () => void;
+    /**
+     * Live microphone peak level in 0..1. Drives the height of the
+     * waveform bars and a subtle scale on the recording dot. Defaults to
+     * 0 so callers (and tests) that don't wire up the meter still get a
+     * sensible static pill.
+     */
+    level?: number;
 }
 
 const PILL = cn(
@@ -51,28 +58,67 @@ function DragHandle() {
     );
 }
 
-function RecordingDot() {
+function clampLevel(level: number): number {
+    if (!Number.isFinite(level) || level < 0) return 0;
+    if (level > 1) return 1;
+    return level;
+}
+
+function RecordingDot({ level }: { level: number }) {
+    // Subtle scale tied to level keeps the dot visually anchored to the
+    // bars; cap the boost so the dot can't bloom past the pill height.
+    const scale = 1 + clampLevel(level) * 0.4;
     return (
         <span
             aria-hidden="true"
+            data-testid="overlay-recording-dot"
             className="pointer-events-none inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
+            style={{ transform: `scale(${scale.toFixed(3)})`, transformOrigin: 'center' }}
         />
     );
 }
 
-function Waveform() {
+// Each bar lights up once the level crosses its threshold. The bar's
+// height is then proportional to how far past the threshold the level
+// has gone, clamped to BAR_MAX_PX. Below the threshold the bar stays at
+// BAR_MIN_PX so the pill never looks empty.
+const BAR_THRESHOLDS = [0.1, 0.3, 0.5, 0.7] as const;
+const BAR_MIN_PX = 3;
+const BAR_MAX_PX = 14;
+
+function barHeightPx(level: number, threshold: number): number {
+    const clamped = clampLevel(level);
+    if (clamped <= threshold) return BAR_MIN_PX;
+    // Map (threshold..1] to (BAR_MIN_PX..BAR_MAX_PX].
+    const denom = Math.max(1 - threshold, 0.0001);
+    const t = Math.min(1, (clamped - threshold) / denom);
+    return BAR_MIN_PX + (BAR_MAX_PX - BAR_MIN_PX) * t;
+}
+
+function Waveform({ level }: { level: number }) {
     return (
-        <span className="pointer-events-none flex items-end gap-0.5" aria-hidden="true">
-            {[0, 1, 2, 3].map((i) => (
-                <span
-                    key={i}
-                    className="block w-0.5 rounded-sm bg-white/85 animate-pulse"
-                    style={{
-                        height: `${5 + ((i * 5) % 8)}px`,
-                        animationDelay: `${i * 110}ms`,
-                    }}
-                />
-            ))}
+        <span
+            className="pointer-events-none flex items-end gap-0.5"
+            aria-hidden="true"
+            data-testid="overlay-waveform"
+        >
+            {BAR_THRESHOLDS.map((threshold, i) => {
+                const height = barHeightPx(level, threshold);
+                const active = clampLevel(level) > threshold;
+                return (
+                    <span
+                        key={threshold}
+                        data-testid={`overlay-waveform-bar-${i}`}
+                        data-active={active ? 'true' : 'false'}
+                        className={cn(
+                            'block w-0.5 rounded-sm bg-white/85',
+                            'transition-[height,opacity] duration-75 ease-out',
+                            active ? 'opacity-100' : 'opacity-60',
+                        )}
+                        style={{ height: `${height.toFixed(2)}px` }}
+                    />
+                );
+            })}
         </span>
     );
 }
@@ -110,15 +156,15 @@ function TranscribingDots() {
     );
 }
 
-export function OverlayWindow({ state, onStop }: OverlayWindowProps) {
+export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) {
     if (state.kind === 'hidden') return null;
 
     if (state.kind === 'recording') {
         return (
             <div className={PILL} data-testid="overlay-pill" data-state="recording">
                 <DragHandle />
-                <RecordingDot />
-                <Waveform />
+                <RecordingDot level={level} />
+                <Waveform level={level} />
                 <span className="pointer-events-none text-[11px] font-medium tracking-wide">
                     Recording
                 </span>

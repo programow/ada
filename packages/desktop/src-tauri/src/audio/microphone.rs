@@ -20,6 +20,10 @@ struct ActiveSession {
     id: Uuid,
     samples: Arc<Mutex<Vec<i16>>>,
     sample_rate: u32,
+    /// Peak amplitude (0.0..=1.0) observed since the last `peak_level_for`
+    /// call. Updated from the cpal callback after downmixing to mono so the
+    /// displayed level matches the saved audio.
+    peak_level: Arc<Mutex<f32>>,
     stop_tx: mpsc::Sender<()>,
     worker: Option<JoinHandle<()>>,
 }
@@ -29,6 +33,19 @@ impl MicrophoneSource {
         Self {
             sessions: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+
+    /// Read the current peak amplitude for `session_id` and reset it to 0.0.
+    /// Returns `None` if no such session is active. The reset gives
+    /// poll-and-clear semantics so each UI frame measures only the loudest
+    /// sample since the previous poll — otherwise the meter would saturate.
+    pub fn peak_level_for(&self, session_id: Uuid) -> Option<f32> {
+        let sessions = self.sessions.lock().unwrap();
+        let session = sessions.iter().find(|s| s.id == session_id)?;
+        let mut peak = session.peak_level.lock().unwrap();
+        let current = *peak;
+        *peak = 0.0;
+        Some(current)
     }
 
     pub fn list_devices() -> Result<Vec<crate::audio::AudioDeviceInfo>, AudioError> {
@@ -77,6 +94,8 @@ impl AudioSource for MicrophoneSource {
         let id = Uuid::new_v4();
         let samples: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(Vec::new()));
         let samples_for_worker = samples.clone();
+        let peak_level: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
+        let peak_for_worker = peak_level.clone();
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         // Channel used by the worker to report startup success/failure and the
         // negotiated sample rate before it parks waiting for `stop_rx`.
@@ -133,6 +152,8 @@ impl AudioSource for MicrophoneSource {
                 let stream_config: cpal::StreamConfig = config.into();
                 let err_fn = |err| log::error!("cpal stream error: {err}");
                 let samples_clone = samples_for_worker.clone();
+                let peak_clone_f32 = peak_for_worker.clone();
+                let peak_clone_i16 = peak_for_worker.clone();
                 // Downmix any multichannel input to mono. Built-in mics on
                 // macOS often default to stereo at 48 kHz; tagging the WAV as
                 // mono while the buffer holds interleaved stereo frames
@@ -142,17 +163,37 @@ impl AudioSource for MicrophoneSource {
                         &stream_config,
                         move |data: &[f32], _: &_| {
                             let mut buf = samples_clone.lock().unwrap();
+                            // Track the per-chunk peak across the *downmixed*
+                            // mono samples so the metered level matches the
+                            // audio we actually save.
+                            let mut chunk_peak: f32 = 0.0;
                             if channels <= 1 {
-                                buf.extend(
-                                    data.iter()
-                                        .map(|&s| (s.clamp(-1.0, 1.0) * 32767.0) as i16),
-                                );
+                                for &s in data {
+                                    let mono = s.clamp(-1.0, 1.0);
+                                    let abs = mono.abs();
+                                    if abs > chunk_peak {
+                                        chunk_peak = abs;
+                                    }
+                                    buf.push((mono * 32767.0) as i16);
+                                }
                             } else {
                                 for frame in data.chunks_exact(channels) {
                                     let avg =
                                         frame.iter().sum::<f32>() / channels as f32;
-                                    buf.push((avg.clamp(-1.0, 1.0) * 32767.0) as i16);
+                                    let mono = avg.clamp(-1.0, 1.0);
+                                    let abs = mono.abs();
+                                    if abs > chunk_peak {
+                                        chunk_peak = abs;
+                                    }
+                                    buf.push((mono * 32767.0) as i16);
                                 }
+                            }
+                            // Merge with whatever the consumer hasn't read
+                            // yet — keep the loudest sample so a quiet poll
+                            // window doesn't erase a recent transient.
+                            let mut peak = peak_clone_f32.lock().unwrap();
+                            if chunk_peak > *peak {
+                                *peak = chunk_peak;
                             }
                         },
                         err_fn,
@@ -162,14 +203,33 @@ impl AudioSource for MicrophoneSource {
                         &stream_config,
                         move |data: &[i16], _: &_| {
                             let mut buf = samples_clone.lock().unwrap();
+                            let mut chunk_peak_i: i32 = 0;
                             if channels <= 1 {
+                                for &s in data {
+                                    let abs = (s as i32).abs();
+                                    if abs > chunk_peak_i {
+                                        chunk_peak_i = abs;
+                                    }
+                                }
                                 buf.extend_from_slice(data);
                             } else {
                                 for frame in data.chunks_exact(channels) {
                                     let sum: i32 =
                                         frame.iter().map(|&s| s as i32).sum();
-                                    buf.push((sum / channels as i32) as i16);
+                                    let mono = (sum / channels as i32) as i16;
+                                    let abs = (mono as i32).abs();
+                                    if abs > chunk_peak_i {
+                                        chunk_peak_i = abs;
+                                    }
+                                    buf.push(mono);
                                 }
+                            }
+                            // i16 range is [-32768, 32767]; divide by 32768
+                            // for a symmetric 0..1 normalization.
+                            let chunk_peak = (chunk_peak_i as f32) / 32768.0;
+                            let mut peak = peak_clone_i16.lock().unwrap();
+                            if chunk_peak > *peak {
+                                *peak = chunk_peak;
                             }
                         },
                         err_fn,
@@ -221,10 +281,15 @@ impl AudioSource for MicrophoneSource {
             id,
             samples,
             sample_rate,
+            peak_level,
             stop_tx,
             worker: Some(worker),
         });
         Ok(CaptureSession { id })
+    }
+
+    fn peak_level(&self, session: &CaptureSession) -> Option<f32> {
+        self.peak_level_for(session.id)
     }
 
     fn stop_capture(&self, session: &CaptureSession) -> Result<Vec<u8>, AudioError> {
@@ -273,12 +338,56 @@ pub fn encode_wav_pcm16(samples: &[i16], sample_rate: u32) -> Vec<u8> {
 }
 
 #[cfg(test)]
+impl MicrophoneSource {
+    /// Test-only helper: insert a synthetic session record so peak-tracking
+    /// can be exercised without spinning up a real cpal stream.
+    pub(crate) fn insert_test_session(&self, id: Uuid, initial_peak: f32) {
+        let (stop_tx, _stop_rx) = mpsc::channel::<()>();
+        self.sessions.lock().unwrap().push(ActiveSession {
+            id,
+            samples: Arc::new(Mutex::new(Vec::new())),
+            sample_rate: 16_000,
+            peak_level: Arc::new(Mutex::new(initial_peak)),
+            stop_tx,
+            worker: None,
+        });
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn microphone_source_can_be_constructed() {
         let _src = MicrophoneSource::new();
+    }
+
+    #[test]
+    fn peak_level_resets_after_read() {
+        let src = MicrophoneSource::new();
+        let id = Uuid::new_v4();
+        src.insert_test_session(id, 0.75);
+        let first = src.peak_level_for(id).unwrap();
+        assert!((first - 0.75).abs() < f32::EPSILON);
+        let second = src.peak_level_for(id).unwrap();
+        assert_eq!(second, 0.0);
+    }
+
+    #[test]
+    fn peak_level_for_unknown_session_returns_none() {
+        let src = MicrophoneSource::new();
+        assert!(src.peak_level_for(Uuid::new_v4()).is_none());
+    }
+
+    #[test]
+    fn audio_source_peak_level_delegates_to_session_lookup() {
+        let src = MicrophoneSource::new();
+        let id = Uuid::new_v4();
+        src.insert_test_session(id, 0.42);
+        let session = CaptureSession { id };
+        let v = AudioSource::peak_level(&src, &session).unwrap();
+        assert!((v - 0.42).abs() < f32::EPSILON);
     }
 
     #[test]

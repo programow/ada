@@ -45,6 +45,14 @@ pub trait AudioSource: Send + Sync {
         device_id: Option<&str>,
     ) -> Result<CaptureSession, AudioError>;
     fn stop_capture(&self, session: &CaptureSession) -> Result<Vec<u8>, AudioError>;
+    /// Returns the loudest sample observed for `session` since the last call,
+    /// normalized to 0.0..=1.0, and resets the tracked peak to 0.0. Returns
+    /// `None` when the source doesn't support level metering or the session
+    /// is unknown. Default impl returns None so mock/test sources don't need
+    /// to bother.
+    fn peak_level(&self, _session: &CaptureSession) -> Option<f32> {
+        None
+    }
 }
 
 #[cfg(test)]

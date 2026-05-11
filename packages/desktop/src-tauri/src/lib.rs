@@ -50,6 +50,7 @@ pub fn run() {
             commands::open_settings_panel,
             commands::start_recording,
             commands::stop_recording,
+            commands::get_recording_level,
             commands::get_secret,
             commands::set_secret,
             commands::delete_secret,

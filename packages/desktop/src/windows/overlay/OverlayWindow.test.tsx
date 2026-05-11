@@ -77,4 +77,54 @@ describe('<OverlayWindow />', () => {
         await user.click(screen.getByRole('button', { name: /stop/i }));
         expect(onStop).toHaveBeenCalledTimes(1);
     });
+
+    it('renders a waveform with all bars inactive when level defaults to 0', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        for (const i of [0, 1, 2, 3]) {
+            const bar = screen.getByTestId(`overlay-waveform-bar-${i}`);
+            expect(bar).toHaveAttribute('data-active', 'false');
+        }
+    });
+
+    it('activates bars whose threshold the level has crossed', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} level={0.55} />);
+        // Thresholds are 0.1, 0.3, 0.5, 0.7 — 0.55 crosses the first three.
+        expect(screen.getByTestId('overlay-waveform-bar-0')).toHaveAttribute('data-active', 'true');
+        expect(screen.getByTestId('overlay-waveform-bar-1')).toHaveAttribute('data-active', 'true');
+        expect(screen.getByTestId('overlay-waveform-bar-2')).toHaveAttribute('data-active', 'true');
+        expect(screen.getByTestId('overlay-waveform-bar-3')).toHaveAttribute(
+            'data-active',
+            'false',
+        );
+    });
+
+    it('lights up every bar at maximum level', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} level={1} />);
+        for (const i of [0, 1, 2, 3]) {
+            expect(screen.getByTestId(`overlay-waveform-bar-${i}`)).toHaveAttribute(
+                'data-active',
+                'true',
+            );
+        }
+    });
+
+    it('clamps out-of-range level values', () => {
+        // Negative / NaN should behave like 0 (all bars inactive).
+        render(<OverlayWindow state={{ kind: 'recording' }} level={Number.NaN} />);
+        for (const i of [0, 1, 2, 3]) {
+            expect(screen.getByTestId(`overlay-waveform-bar-${i}`)).toHaveAttribute(
+                'data-active',
+                'false',
+            );
+        }
+    });
+
+    it('scales the recording dot with the level', () => {
+        const { rerender } = render(<OverlayWindow state={{ kind: 'recording' }} level={0} />);
+        const dotAtZero = screen.getByTestId('overlay-recording-dot');
+        expect(dotAtZero.getAttribute('style')).toMatch(/scale\(1\.000\)/);
+        rerender(<OverlayWindow state={{ kind: 'recording' }} level={1} />);
+        const dotAtMax = screen.getByTestId('overlay-recording-dot');
+        expect(dotAtMax.getAttribute('style')).toMatch(/scale\(1\.400\)/);
+    });
 });

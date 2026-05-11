@@ -11,6 +11,7 @@ const {
     getOverlayPositionMock,
     setOverlayPositionMock,
     exitOverlayPositionSetupMock,
+    getRecordingLevelMock,
 } = vi.hoisted(() => {
     type Handler = (event: { payload: unknown }) => void;
     const handlers = new Map<string, Handler>();
@@ -45,6 +46,7 @@ const {
         exitOverlayPositionSetupMock: vi.fn<(opts?: { hide: boolean }) => Promise<void>>(
             async () => undefined,
         ),
+        getRecordingLevelMock: vi.fn<(sessionId: string) => Promise<number>>(async () => 0),
     };
 });
 
@@ -74,6 +76,9 @@ vi.mock('@/lib/overlay-bridge', () => ({
     OVERLAY_RESET_POSITION_EVENT: 'vox-era://overlay-reset-position',
     exitOverlayPositionSetup: exitOverlayPositionSetupMock,
 }));
+vi.mock('@/lib/invoke', () => ({
+    vox: { getRecordingLevel: getRecordingLevelMock },
+}));
 
 import { OverlayApp } from './OverlayApp';
 
@@ -90,6 +95,7 @@ beforeEach(() => {
     getOverlayPositionMock.mockReset().mockResolvedValue(null);
     setOverlayPositionMock.mockReset().mockResolvedValue(undefined);
     exitOverlayPositionSetupMock.mockReset().mockResolvedValue(undefined);
+    getRecordingLevelMock.mockReset().mockResolvedValue(0);
     vi.useRealTimers();
 });
 
@@ -361,6 +367,76 @@ describe('<OverlayApp /> setup mode', () => {
             await vi.advanceTimersByTimeAsync(600);
         });
         expect(exitOverlayPositionSetupMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('<OverlayApp /> level polling', () => {
+    it('polls getRecordingLevel while recording and forwards the level to the pill', async () => {
+        getRecordingLevelMock.mockResolvedValue(0.8);
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
+        });
+        await waitFor(() => {
+            expect(getRecordingLevelMock).toHaveBeenCalledWith('session-1');
+        });
+        // The waveform reflects the polled level: the highest-threshold bar
+        // (0.7) should be active for level=0.8.
+        await waitFor(() => {
+            const bar = screen.getByTestId('overlay-waveform-bar-3');
+            expect(bar).toHaveAttribute('data-active', 'true');
+        });
+    });
+
+    it('stops polling when the recording state transitions away', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
+        });
+        await waitFor(() => expect(getRecordingLevelMock).toHaveBeenCalled());
+        await act(async () => {
+            fireEvent(RECORDING_EVENT, { kind: 'transcribing' });
+        });
+        getRecordingLevelMock.mockClear();
+        // Give any straggler interval ticks time to fire — they should not.
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(getRecordingLevelMock).not.toHaveBeenCalled();
+    });
+
+    it('does not poll while idle', async () => {
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        expect(getRecordingLevelMock).not.toHaveBeenCalled();
+    });
+
+    it('swallows getRecordingLevel errors and keeps polling', async () => {
+        getRecordingLevelMock.mockRejectedValueOnce(new Error('stale session'));
+        getRecordingLevelMock.mockResolvedValue(0.4);
+        render(<OverlayApp />);
+        await waitFor(() =>
+            expect(listenMock).toHaveBeenCalledWith(RECORDING_EVENT, expect.any(Function)),
+        );
+        await act(async () => {
+            fireEvent(RECORDING_EVENT, { kind: 'recording', sessionId: 'session-1' });
+        });
+        // At least two calls: the rejected one + a follow-up.
+        await waitFor(
+            () => {
+                expect(getRecordingLevelMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+            },
+            { timeout: 1000 },
+        );
+        // No unhandled-promise crash brought the pill down.
+        expect(screen.getByTestId('overlay-pill')).toBeInTheDocument();
     });
 });
 

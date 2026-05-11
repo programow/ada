@@ -1,4 +1,5 @@
 import { type OverlayPosition, getOverlayPosition, setOverlayPosition } from '@/lib/db';
+import { vox } from '@/lib/invoke';
 import {
     OVERLAY_POSITION_SETUP_OFF_EVENT,
     OVERLAY_POSITION_SETUP_ON_EVENT,
@@ -18,6 +19,9 @@ const OVERLAY_HEIGHT = 64;
 const BOTTOM_MARGIN_PX = 80;
 const POSITION_SAVE_DEBOUNCE_MS = 400;
 const SETUP_IDLE_EXIT_MS = 3000;
+// 12 Hz — smooth enough that the human eye reads it as continuous motion,
+// light enough that the Tauri invoke overhead is negligible.
+const LEVEL_POLL_INTERVAL_MS = 80;
 
 function determineOverlayState(rec: RecordingState, setupActive: boolean): OverlayState {
     if (rec.kind === 'recording') return { kind: 'recording' };
@@ -185,9 +189,48 @@ function useOverlayPositionSetup(recordingState: RecordingState): { setupActive:
     return { setupActive };
 }
 
+/**
+ * Poll the Rust side for the live microphone peak level while we're in the
+ * `recording` state. Stops polling and resets to 0 on any other state so
+ * the meter snaps flat the moment the user stops talking. Failures from the
+ * invoke are swallowed — a missed sample is invisible, errors aren't worth
+ * surfacing to the user.
+ */
+function useOverlayRecordingLevel(recordingState: RecordingState): number {
+    const [level, setLevel] = useState(0);
+    useEffect(() => {
+        if (recordingState.kind !== 'recording') {
+            setLevel(0);
+            return;
+        }
+        const { sessionId } = recordingState;
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const next = await vox.getRecordingLevel(sessionId);
+                if (!cancelled) setLevel(next);
+            } catch {
+                // Swallow — a stale session id after stop_recording is the
+                // expected race when the state event arrives a frame late.
+            }
+        };
+        // Kick off immediately so the first frame after "recording" arrives
+        // already shows the live level instead of a beat of zeros.
+        void tick();
+        const handle = setInterval(() => void tick(), LEVEL_POLL_INTERVAL_MS);
+        return () => {
+            cancelled = true;
+            clearInterval(handle);
+            setLevel(0);
+        };
+    }, [recordingState]);
+    return level;
+}
+
 export function OverlayApp() {
     const recordingState = useOverlayRecordingState();
     const { setupActive } = useOverlayPositionSetup(recordingState);
+    const level = useOverlayRecordingLevel(recordingState);
     useOverlayInitialPosition();
     useOverlayPositionPersistence();
     useOverlayResetHandler();
@@ -195,6 +238,7 @@ export function OverlayApp() {
         <OverlayWindow
             state={determineOverlayState(recordingState, setupActive)}
             onStop={() => void requestRecordingToggle()}
+            level={level}
         />
     );
 }
