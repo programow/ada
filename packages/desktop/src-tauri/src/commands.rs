@@ -31,10 +31,10 @@ use crate::shortcut::{ShortcutManager, macos_fn::MacOsFnTap};
 pub struct AppState {
     pub audio: Box<dyn AudioSource>,
     pub vault: Box<dyn Vault>,
-    /// `Arc` (not `Box`) so the async `paste_text` command can clone the
-    /// paster and move that clone into a `spawn_blocking` task — the 80 ms
-    /// pboard-settle sleep used to block one of Tauri's command-execution
-    /// threads per paste, which serialized pastes under burst load.
+    /// `Arc` (not `Box`) so the paster can be cloned into other contexts
+    /// if needed. The paste command itself is sync — see the comment on
+    /// [`paste_text`] for why we don't dispatch the keystroke off the
+    /// Tauri command thread on macOS.
     pub paster: Arc<dyn Paster>,
     pub current_hotkey: Mutex<Option<Shortcut>>,
     /// macOS Fn-key tap. Lazily initialized the first time the user picks
@@ -260,17 +260,18 @@ pub fn delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<()
 /// so the React side can surface a useful message instead of "text on
 /// clipboard but nothing happened".
 ///
-/// The command is `async` and the actual clipboard+keystroke work runs on the
-/// blocking thread pool via `tauri::async_runtime::spawn_blocking`. The
-/// underlying `EnigoPaster::paste_text` sleeps ~80 ms between the clipboard
-/// write and the synthetic Cmd/Ctrl+V to let `pboard` propagate; doing that
-/// inline used to tie up one of Tauri's command-execution threads for the
-/// duration. The `Paster` trait stays sync — only the command boundary
-/// changes. The JS-visible contract (command name, `text` arg, error
-/// shapes including the `accessibility-required:` and
-/// `wayland-paste-unsupported:` markers) is unchanged.
+/// The command MUST be sync. Tauri's sync command runner dispatches the
+/// call on a thread context that AppKit/HIToolbox accepts; if we made the
+/// command `async` and ran the work via `tauri::async_runtime::spawn_blocking`,
+/// enigo's `TSMGetInputSourceProperty` call inside `Enigo::key()` would hit
+/// `dispatch_assert_queue_fail` on macOS 14+ and abort the process. The
+/// ~80 ms `PBOARD_SETTLE_DELAY` sleep is short enough that holding a Tauri
+/// command thread for that duration is fine in practice. The JS-visible
+/// contract (command name, `text` arg, error shapes including the
+/// `accessibility-required:` and `wayland-paste-unsupported:` markers) is
+/// unchanged.
 #[tauri::command]
-pub async fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
+pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let perm = crate::audio::permissions::check_accessibility_permission();
@@ -285,14 +286,9 @@ pub async fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), 
     }
     log::info!(
         "paste_text: dispatching {} chars to clipboard + paste keystroke",
-        text.chars().count()
+        text.chars().count(),
     );
-    // Clone the `Arc<dyn Paster>` so the closure can outlive the Tauri
-    // `State` borrow (which is tied to this async fn's stack).
-    let paster = Arc::clone(&state.paster);
-    let result = tauri::async_runtime::spawn_blocking(move || paster.paste_text(&text))
-        .await
-        .map_err(|e| format!("paste_text: blocking task join failed: {e}"))?;
+    let result = state.paster.paste_text(&text);
     #[cfg(target_os = "linux")]
     if let Err(ref e) = result {
         if e.starts_with(ERR_WAYLAND_PASTE_UNSUPPORTED) {
