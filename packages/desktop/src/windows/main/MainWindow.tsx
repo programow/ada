@@ -3,9 +3,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toast } from '@/components/ui/toast';
 import { useHotkeyRecording } from '@/hooks/useHotkeyRecording';
 import { listTranscriptions, restoreTranscription, softDeleteTranscription } from '@/lib/db';
+import { useOnboardingGate } from '@/lib/use-onboarding-gate';
 import { useCallback, useEffect, useState } from 'react';
 import { Dashboard } from './Dashboard';
 import { History, type HistoryEntry } from './History';
+import { OnboardingScreen } from './OnboardingScreen';
 import { RecordingStatusPill } from './RecordingStatusPill';
 import { SettingsApiKeys } from './SettingsApiKeys';
 import { SettingsHistory } from './SettingsHistory';
@@ -24,7 +26,38 @@ interface UndoToastState {
     rowId: number | null;
 }
 
+/**
+ * Outer gate — routes the user through onboarding the first time they
+ * launch Vox Era on a machine where required permissions are missing,
+ * silently bypasses it on every subsequent launch (and on Windows/Linux
+ * where everything is usually already granted).
+ */
 export function MainWindow() {
+    const { state, complete } = useOnboardingGate();
+    if (state === 'loading') {
+        return (
+            <main
+                className="flex min-h-screen items-center justify-center bg-bg text-fg"
+                data-testid="main-loading"
+            >
+                <p className="text-sm font-medium">Loading…</p>
+            </main>
+        );
+    }
+    if (state === 'show-onboarding') {
+        return <OnboardingScreen onComplete={complete} />;
+    }
+    return <MainWindowInner />;
+}
+
+/**
+ * The original main-window UI — tabs, dashboard, history, settings. Split
+ * out from [`MainWindow`] so the gate above can render an alternate tree
+ * without running this component's hooks (which would otherwise issue
+ * `listTranscriptions` etc. while the user is still on the onboarding
+ * screen).
+ */
+export function MainWindowInner() {
     const { state: recordingState } = useHotkeyRecording();
     const [historyEntries, setHistoryEntries] = useState<readonly HistoryEntry[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);

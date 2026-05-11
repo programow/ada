@@ -8,6 +8,19 @@ export interface AudioDeviceInfo {
     isDefault: boolean;
 }
 
+export type HostOs = 'macos' | 'windows' | 'linux';
+
+/**
+ * Platform context surfaced by the Rust `get_platform_info` command. The
+ * webview keys per-OS behaviour off this value (e.g. which permission
+ * rows the onboarding screen renders, whether to show the Wayland
+ * paste-fallback banner). `isWayland` is always `false` on macOS/Windows.
+ */
+export interface PlatformInfo {
+    os: HostOs;
+    isWayland: boolean;
+}
+
 export const vox = {
     checkMicrophonePermission: () => invoke<PermissionState>('check_microphone_permission'),
     requestMicrophonePermission: () => invoke<PermissionState>('request_microphone_permission'),
@@ -64,4 +77,18 @@ export const vox = {
     deleteSecret: (secretId: string) => invoke<void>('delete_secret', { secretId }),
 
     pasteText: (text: string) => invoke<void>('paste_text', { text }),
+
+    /**
+     * Returns the current host OS and (on Linux) whether the session is
+     * running under Wayland. Drives the onboarding screen's per-platform
+     * permission row set and the Wayland paste-fallback info banner.
+     */
+    getPlatformInfo: () => invoke<PlatformInfo>('get_platform_info'),
+    /**
+     * Restart the running Vox Era process. Used by the onboarding screen
+     * after the user grants Accessibility / Input Monitoring on macOS,
+     * since TCC doesn't propagate authorisation changes into a running
+     * process.
+     */
+    restartApp: () => invoke<void>('restart_app'),
 };

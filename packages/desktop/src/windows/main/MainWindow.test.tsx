@@ -57,6 +57,11 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
     WebviewWindow: { getByLabel: vi.fn(async () => null) },
 }));
 
+vi.mock('@/lib/use-onboarding-gate', () => ({
+    useOnboardingGate: vi.fn(() => ({ state: 'show-main', complete: vi.fn() })),
+}));
+
+import { useOnboardingGate } from '@/lib/use-onboarding-gate';
 import { MainWindow } from './MainWindow';
 
 describe('<MainWindow />', () => {
@@ -94,5 +99,27 @@ describe('<MainWindow />', () => {
         render(<MainWindow />);
         await user.click(screen.getByRole('tab', { name: /about/i }));
         expect(screen.getByTestId('panel-about')).toBeInTheDocument();
+    });
+
+    it('renders a loading state while the onboarding gate is undecided', () => {
+        vi.mocked(useOnboardingGate).mockReturnValueOnce({
+            state: 'loading',
+            complete: vi.fn(),
+        });
+        render(<MainWindow />);
+        expect(screen.getByTestId('main-loading')).toBeInTheDocument();
+    });
+
+    it('renders the OnboardingScreen when the gate says show-onboarding', () => {
+        vi.mocked(useOnboardingGate).mockReturnValueOnce({
+            state: 'show-onboarding',
+            complete: vi.fn(),
+        });
+        render(<MainWindow />);
+        // The onboarding screen starts in its own loading state until
+        // useOnboardingStatus resolves; either container is acceptable.
+        const onboarding =
+            screen.queryByTestId('onboarding-screen') ?? screen.queryByTestId('onboarding-loading');
+        expect(onboarding).toBeInTheDocument();
     });
 });

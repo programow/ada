@@ -5,6 +5,7 @@ pub mod history;
 #[cfg(target_os = "macos")]
 pub mod overlay_panel;
 pub mod paste;
+pub mod platform;
 pub mod secrets;
 pub mod settings;
 pub mod shortcut;
@@ -63,6 +64,8 @@ pub fn run() {
             commands::unregister_hotkey,
             commands::get_fn_usage_type,
             commands::set_fn_usage_type,
+            commands::get_platform_info,
+            commands::restart_app,
         ])
         .setup(|app| {
             log::info!("voxera setup: building AppState with TauriClipboard");

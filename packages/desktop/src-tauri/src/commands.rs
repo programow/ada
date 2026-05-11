@@ -1,7 +1,9 @@
 use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState, microphone::MicrophoneSource};
 use crate::paste::Paster;
+use crate::platform::is_wayland_session;
 use crate::secrets::Vault;
 use crate::shortcut::parse::{format_combo, parse_combo};
+use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
@@ -31,6 +33,65 @@ pub struct AppState {
     /// combo just unregisters the global shortcut, the dormant tap stays.
     #[cfg(target_os = "macos")]
     pub fn_tap: Mutex<Option<Arc<MacOsFnTap>>>,
+}
+
+/// Platform identifier emitted to the JS side. The webview keys per-OS
+/// behaviour off this value (e.g. which permission rows to show, whether
+/// to display the Wayland paste-fallback banner), so the variants must
+/// stay aligned with the `os: 'macos' | 'windows' | 'linux'` union in
+/// `lib/platform.ts`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HostOs {
+    Macos,
+    Windows,
+    Linux,
+}
+
+/// Platform context surfaced to the onboarding screen.
+///
+/// `isWayland` is always `false` on macOS/Windows; on Linux it reflects
+/// `XDG_SESSION_TYPE` / `WAYLAND_DISPLAY` via [`crate::platform::is_wayland_session`].
+/// `rename_all = "camelCase"` keeps the JS read site clean (`info.isWayland`).
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformInfo {
+    pub os: HostOs,
+    pub is_wayland: bool,
+}
+
+/// Returns the current host OS and (on Linux) whether the session is
+/// running under Wayland. Drives the onboarding screen's per-platform
+/// permission row set and the Wayland paste-fallback info banner.
+#[tauri::command]
+pub fn get_platform_info() -> PlatformInfo {
+    #[cfg(target_os = "macos")]
+    let os = HostOs::Macos;
+    #[cfg(target_os = "windows")]
+    let os = HostOs::Windows;
+    #[cfg(target_os = "linux")]
+    let os = HostOs::Linux;
+    // `is_wayland_session` returns false on macOS/Windows by construction,
+    // so we can call it unconditionally without a `cfg`-cascade here.
+    PlatformInfo {
+        os,
+        is_wayland: is_wayland_session(),
+    }
+}
+
+/// Restart the running Vox Era process. Called from the onboarding screen
+/// after the user grants Accessibility / Input Monitoring on macOS, since
+/// TCC doesn't propagate authorisation changes into a running process.
+///
+/// `AppHandle::restart` is the canonical Tauri 2 relaunch path — it spawns
+/// a new instance of the current executable and terminates the old one.
+/// The function is `-> !` on Tauri 2 (it never returns), so we don't try to
+/// surface a result; emitting an event before the restart isn't worth the
+/// race against the process exit.
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    log::info!("restart_app: relaunching Vox Era");
+    app.restart();
 }
 
 #[tauri::command]
@@ -375,4 +436,51 @@ pub fn set_fn_usage_type(value: i32) -> Result<(), String> {
 #[tauri::command]
 pub fn set_fn_usage_type(_value: i32) -> Result<(), String> {
     Err("Fn usage type is a macOS-only setting".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_platform_info_returns_current_os() {
+        let info = get_platform_info();
+        #[cfg(target_os = "macos")]
+        assert_eq!(info.os, HostOs::Macos);
+        #[cfg(target_os = "windows")]
+        assert_eq!(info.os, HostOs::Windows);
+        #[cfg(target_os = "linux")]
+        assert_eq!(info.os, HostOs::Linux);
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn get_platform_info_is_never_wayland_off_linux() {
+        assert!(!get_platform_info().is_wayland);
+    }
+
+    #[test]
+    fn platform_info_serializes_camel_case() {
+        // The JS side reads `info.isWayland`; serde's default would emit
+        // `is_wayland`. This test pins the rename so a refactor that drops
+        // the attribute fails loudly instead of silently breaking the
+        // onboarding screen.
+        let info = PlatformInfo {
+            os: HostOs::Macos,
+            is_wayland: false,
+        };
+        let j = serde_json::to_string(&info).unwrap();
+        assert!(j.contains("\"isWayland\":false"), "got: {j}");
+        assert!(j.contains("\"os\":\"macos\""), "got: {j}");
+    }
+
+    #[test]
+    fn host_os_serializes_lowercase() {
+        assert_eq!(serde_json::to_string(&HostOs::Macos).unwrap(), "\"macos\"");
+        assert_eq!(
+            serde_json::to_string(&HostOs::Windows).unwrap(),
+            "\"windows\""
+        );
+        assert_eq!(serde_json::to_string(&HostOs::Linux).unwrap(), "\"linux\"");
+    }
 }
