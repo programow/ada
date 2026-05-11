@@ -16,6 +16,17 @@ function providerName(id: string): string {
     return PROVIDERS.find((p) => p.id === id)?.name ?? id;
 }
 
+function formatPricePerMin(perMinuteUSD: number): string {
+    if (perMinuteUSD >= 0.01) return `$${perMinuteUSD.toFixed(4)}/min`;
+    return `$${perMinuteUSD.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}/min`;
+}
+
+function modelPriceLabel(providerId: string, modelId: string): string | null {
+    const entry = PROVIDERS.find((p) => p.id === providerId)?.pricing[modelId];
+    if (!entry) return null;
+    return formatPricePerMin(entry.perMinuteUSD);
+}
+
 export function SettingsModelConfigs() {
     const [configs, setConfigs] = useState<ModelConfigWithApiKey[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -79,7 +90,18 @@ export function SettingsModelConfigs() {
                                         <span className="block text-xs font-bold uppercase tracking-widest">
                                             {providerName(c.providerId)} · {c.apiKeyNickname}
                                         </span>
-                                        <span className="block text-sm">{c.modelId}</span>
+                                        <span className="block text-sm">
+                                            {c.modelId}
+                                            {(() => {
+                                                const price = modelPriceLabel(
+                                                    c.providerId,
+                                                    c.modelId,
+                                                );
+                                                return price ? (
+                                                    <span className="opacity-70"> · {price}</span>
+                                                ) : null;
+                                            })()}
+                                        </span>
                                     </span>
                                 </button>
                                 <div className="flex items-center pr-2">

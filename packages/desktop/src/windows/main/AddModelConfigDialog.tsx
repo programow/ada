@@ -10,8 +10,20 @@ import {
 import { Label } from '@/components/ui/label';
 import { type ApiKeyRow, addModelConfig, listApiKeys } from '@/lib/db';
 import { vox } from '@/lib/invoke';
-import { type Model, PROVIDERS } from '@/providers';
-import { useEffect, useId, useState } from 'react';
+import { type Model, PROVIDERS, type ProviderConfig } from '@/providers';
+import { useEffect, useId, useMemo, useState } from 'react';
+
+function formatPricePerMin(perMinuteUSD: number): string {
+    // Sub-cent rates need more precision; cent-or-more rates round nicely.
+    if (perMinuteUSD >= 0.01) return `$${perMinuteUSD.toFixed(4)}/min`;
+    return `$${perMinuteUSD.toFixed(6).replace(/0+$/, '').replace(/\.$/, '')}/min`;
+}
+
+function modelPriceLabel(provider: ProviderConfig | undefined, modelId: string): string | null {
+    const entry = provider?.pricing[modelId];
+    if (!entry) return null;
+    return formatPricePerMin(entry.perMinuteUSD);
+}
 
 interface AddModelConfigDialogProps {
     open: boolean;
@@ -32,6 +44,11 @@ export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigD
     const [selectedModel, setSelectedModel] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+
+    const selectedProvider = useMemo(
+        () => PROVIDERS.find((p) => p.id === keys.find((k) => k.id === selectedKey)?.providerId),
+        [keys, selectedKey],
+    );
 
     useEffect(() => {
         if (!open) return;
@@ -147,11 +164,16 @@ export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigD
                                     value={selectedModel}
                                     onChange={(e) => setSelectedModel(e.target.value)}
                                 >
-                                    {models.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.displayName}
-                                        </option>
-                                    ))}
+                                    {models.map((m) => {
+                                        const price = modelPriceLabel(selectedProvider, m.id);
+                                        return (
+                                            <option key={m.id} value={m.id}>
+                                                {price
+                                                    ? `${m.displayName} · ${price}`
+                                                    : m.displayName}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             </div>
                         </>
