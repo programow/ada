@@ -29,9 +29,9 @@ export interface OverlayWindowProps {
 const PILL = cn(
     'fixed bottom-3 left-1/2 -translate-x-1/2',
     'flex items-center gap-2',
-    'rounded-full bg-black/55 backdrop-blur-md',
-    'pl-1.5 pr-3 py-1.5',
-    'ring-1 ring-white/10',
+    'rounded-full bg-brand-navy/85 backdrop-blur-md',
+    'pl-2 pr-4 py-2.5',
+    'shadow-card-lg',
     'select-none text-white',
 );
 
@@ -81,7 +81,7 @@ function RecordingDot({ level }: { level: number }) {
         <span
             aria-hidden="true"
             data-testid="overlay-recording-dot"
-            className="pointer-events-none inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
+            className="pointer-events-none inline-block h-2 w-2 rounded-full bg-brand-coral animate-pulse"
             style={{ transform: `scale(${scale.toFixed(3)})`, transformOrigin: 'center' }}
         />
     );
@@ -130,9 +130,10 @@ function Waveform({ level }: { level: number }) {
                         data-testid={`overlay-waveform-bar-${i}`}
                         data-active={active ? 'true' : 'false'}
                         className={cn(
-                            'block w-0.5 rounded-sm bg-white/85',
-                            'transition-[height,opacity] duration-75 ease-out',
-                            active ? 'opacity-100' : 'opacity-60',
+                            'block w-0.5 rounded-sm transition-[height,background-color,opacity] duration-75 ease-out',
+                            active
+                                ? 'bg-brand-yellow opacity-100'
+                                : 'bg-brand-yellow/40 opacity-80',
                         )}
                         style={{ height: `${height.toFixed(2)}px` }}
                     />
@@ -172,7 +173,7 @@ function CancelButton({ onClick }: { onClick?: () => void }) {
             className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-full',
                 'bg-white/15 text-white/85',
-                'hover:bg-white/25 hover:text-white active:bg-white/35',
+                'hover:bg-brand-coral/40 hover:text-white active:bg-brand-coral/60',
                 'transition-colors',
             )}
         >
@@ -197,7 +198,7 @@ function TranscribingDots() {
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
-                    className="block h-1.5 w-1.5 rounded-full bg-white/85 animate-bounce"
+                    className="block h-1.5 w-1.5 rounded-full bg-brand-yellow animate-bounce"
                     style={{ animationDelay: `${i * 150}ms` }}
                 />
             ))}
@@ -214,7 +215,7 @@ export function OverlayWindow({ state, onStop, onCancel, level = 0 }: OverlayWin
                 <DragHandle />
                 <RecordingDot level={level} />
                 <Waveform level={level} />
-                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                <span className="pointer-events-none text-[11px] font-semibold tracking-wide">
                     Recording
                 </span>
                 <CancelButton onClick={onCancel} />
@@ -228,7 +229,7 @@ export function OverlayWindow({ state, onStop, onCancel, level = 0 }: OverlayWin
             <div className={PILL} data-testid="overlay-pill" data-state="transcribing">
                 <DragHandle />
                 <TranscribingDots />
-                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                <span className="pointer-events-none text-[11px] font-semibold tracking-wide">
                     Transcribing
                 </span>
             </div>
