@@ -46,4 +46,3 @@ docs/sessions/
 # Legacy Electron app artifacts
 legacy/electron/node_modules/
 legacy/electron/dist/
-docs/superpowers/
