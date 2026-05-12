@@ -11,6 +11,13 @@ export interface OverlayWindowProps {
     state: OverlayState;
     onStop?: () => void;
     /**
+     * Fires when the user clicks the X button on the recording pill. The
+     * pill is hidden in other states, so this is only invoked while the
+     * overlay is in `recording`. Callers translate this into the cancel
+     * event (so a click takes the same path as the cancel hotkey).
+     */
+    onCancel?: () => void;
+    /**
      * Live microphone peak level in 0..1. Drives the height of the
      * waveform bars and a subtle scale on the recording dot. Defaults to
      * 0 so callers (and tests) that don't wire up the meter still get a
@@ -22,9 +29,9 @@ export interface OverlayWindowProps {
 const PILL = cn(
     'fixed bottom-3 left-1/2 -translate-x-1/2',
     'flex items-center gap-2',
-    'rounded-full bg-black/55 backdrop-blur-md',
-    'pl-1.5 pr-3 py-1.5',
-    'ring-1 ring-white/10',
+    'rounded-full bg-brand-navy/85 backdrop-blur-md',
+    'pl-2 pr-4 py-2.5',
+    'shadow-card-lg',
     'select-none text-white',
 );
 
@@ -67,12 +74,14 @@ function clampLevel(level: number): number {
 function RecordingDot({ level }: { level: number }) {
     // Subtle scale tied to level keeps the dot visually anchored to the
     // bars; cap the boost so the dot can't bloom past the pill height.
-    const scale = 1 + clampLevel(level) * 0.4;
+    // Mapped against BAR_MAX_LEVEL so it tracks the bars at typical voice
+    // amplitudes instead of needing a shout to react.
+    const scale = 1 + Math.min(1, clampLevel(level) / BAR_MAX_LEVEL) * 0.4;
     return (
         <span
             aria-hidden="true"
             data-testid="overlay-recording-dot"
-            className="pointer-events-none inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse"
+            className="pointer-events-none inline-block h-2 w-2 rounded-full bg-brand-coral animate-pulse"
             style={{ transform: `scale(${scale.toFixed(3)})`, transformOrigin: 'center' }}
         />
     );
@@ -82,15 +91,25 @@ function RecordingDot({ level }: { level: number }) {
 // height is then proportional to how far past the threshold the level
 // has gone, clamped to BAR_MAX_PX. Below the threshold the bar stays at
 // BAR_MIN_PX so the pill never looks empty.
-const BAR_THRESHOLDS = [0.1, 0.3, 0.5, 0.7] as const;
+//
+// Thresholds are calibrated against typical conversational speech peaks
+// (~0.05–0.20 in the cpal RMS-of-mono signal): the lowest bar reacts to
+// any audible voice, and a slightly raised voice lights all four. The
+// previous calibration (0.1/0.3/0.5/0.7) required shouting to fill —
+// useless feedback for someone speaking naturally into a built-in mic.
+const BAR_THRESHOLDS = [0.008, 0.025, 0.05, 0.1] as const;
 const BAR_MIN_PX = 3;
 const BAR_MAX_PX = 14;
+// Level at which a bar reaches BAR_MAX_PX. Built-in mics on real-world
+// laptops peak much lower than studio gear, so the saturation ceiling is
+// kept well below 1.0 — otherwise normal speech only ever fills the bars
+// to ~30% height even when all four are "active".
+const BAR_MAX_LEVEL = 0.18;
 
 function barHeightPx(level: number, threshold: number): number {
     const clamped = clampLevel(level);
     if (clamped <= threshold) return BAR_MIN_PX;
-    // Map (threshold..1] to (BAR_MIN_PX..BAR_MAX_PX].
-    const denom = Math.max(1 - threshold, 0.0001);
+    const denom = Math.max(BAR_MAX_LEVEL - threshold, 0.0001);
     const t = Math.min(1, (clamped - threshold) / denom);
     return BAR_MIN_PX + (BAR_MAX_PX - BAR_MIN_PX) * t;
 }
@@ -111,9 +130,10 @@ function Waveform({ level }: { level: number }) {
                         data-testid={`overlay-waveform-bar-${i}`}
                         data-active={active ? 'true' : 'false'}
                         className={cn(
-                            'block w-0.5 rounded-sm bg-white/85',
-                            'transition-[height,opacity] duration-75 ease-out',
-                            active ? 'opacity-100' : 'opacity-60',
+                            'block w-0.5 rounded-sm transition-[height,background-color,opacity] duration-75 ease-out',
+                            active
+                                ? 'bg-brand-yellow opacity-100'
+                                : 'bg-brand-yellow/40 opacity-80',
                         )}
                         style={{ height: `${height.toFixed(2)}px` }}
                     />
@@ -142,13 +162,43 @@ function StopButton({ onClick }: { onClick?: () => void }) {
     );
 }
 
+function CancelButton({ onClick }: { onClick?: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label="Cancel recording"
+            title="Cancel"
+            data-testid="overlay-cancel-button"
+            className={cn(
+                'flex h-5 w-5 items-center justify-center rounded-full',
+                'bg-white/15 text-white/85',
+                'hover:bg-brand-coral/40 hover:text-white active:bg-brand-coral/60',
+                'transition-colors',
+            )}
+        >
+            <svg
+                aria-hidden="true"
+                viewBox="0 0 10 10"
+                className="block h-2.5 w-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+            >
+                <path d="M2 2 L8 8 M8 2 L2 8" />
+            </svg>
+        </button>
+    );
+}
+
 function TranscribingDots() {
     return (
         <span className="pointer-events-none flex items-center gap-1" aria-hidden="true">
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
-                    className="block h-1.5 w-1.5 rounded-full bg-white/85 animate-bounce"
+                    className="block h-1.5 w-1.5 rounded-full bg-brand-yellow animate-bounce"
                     style={{ animationDelay: `${i * 150}ms` }}
                 />
             ))}
@@ -156,7 +206,7 @@ function TranscribingDots() {
     );
 }
 
-export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) {
+export function OverlayWindow({ state, onStop, onCancel, level = 0 }: OverlayWindowProps) {
     if (state.kind === 'hidden') return null;
 
     if (state.kind === 'recording') {
@@ -165,9 +215,10 @@ export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) 
                 <DragHandle />
                 <RecordingDot level={level} />
                 <Waveform level={level} />
-                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                <span className="pointer-events-none text-[11px] font-semibold tracking-wide">
                     Recording
                 </span>
+                <CancelButton onClick={onCancel} />
                 <StopButton onClick={onStop} />
             </div>
         );
@@ -178,7 +229,7 @@ export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) 
             <div className={PILL} data-testid="overlay-pill" data-state="transcribing">
                 <DragHandle />
                 <TranscribingDots />
-                <span className="pointer-events-none text-[11px] font-medium tracking-wide">
+                <span className="pointer-events-none text-[11px] font-semibold tracking-wide">
                     Transcribing
                 </span>
             </div>

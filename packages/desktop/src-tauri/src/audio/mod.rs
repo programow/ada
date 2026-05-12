@@ -44,6 +44,14 @@ pub trait AudioSource: Send + Sync {
         device_id: Option<&str>,
     ) -> Result<CaptureSession, AudioError>;
     fn stop_capture(&self, session: &CaptureSession) -> Result<Vec<u8>, AudioError>;
+    /// Like `stop_capture` but discards the buffered audio instead of
+    /// returning WAV bytes. Used by the cancel-recording path so an aborted
+    /// session never reaches an STT provider. Default impl falls back to
+    /// calling `stop_capture` and dropping the result so mock impls don't
+    /// have to implement this explicitly.
+    fn cancel_capture(&self, session: &CaptureSession) -> Result<(), AudioError> {
+        self.stop_capture(session).map(|_| ())
+    }
     /// Returns the loudest sample observed for `session` since the last call,
     /// normalized to 0.0..=1.0, and resets the tracked peak to 0.0. Returns
     /// `None` when the source doesn't support level metering or the session

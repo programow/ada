@@ -1,7 +1,8 @@
 import { emit } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getOverlayEnabled } from './db';
-import { EVT_SHORTCUT_TOGGLE } from './markers';
+import { currentMonitor } from '@tauri-apps/api/window';
+import { getOverlayEnabled, setOverlayPosition } from './db';
+import { EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE } from './markers';
 import type { RecordingState } from './recording-controller';
 
 export const RECORDING_STATE_EVENT = 'vox-era://recording-state';
@@ -124,7 +125,30 @@ export async function exitOverlayPositionSetup(
  * overlay listens for this event and calls `setPosition`; its existing
  * onMoved-debounce save will then write the default coords to db.
  */
+const OVERLAY_WIDTH_PX = 280;
+const OVERLAY_HEIGHT_PX = 64;
+const OVERLAY_BOTTOM_MARGIN_PX = 80;
+
 export async function resetOverlayPosition(): Promise<void> {
+    // Compute a sane default in physical pixels for the current monitor and
+    // write it to the DB ourselves before emitting. Previously we only
+    // emitted the reset event and relied on the overlay's onMoved-debounce
+    // to persist — if a corrupted DB value parked the window off-screen,
+    // setPosition wouldn't necessarily trigger an onMoved, so the bad value
+    // survived the reset.
+    try {
+        const monitor = await currentMonitor();
+        if (monitor) {
+            const target = {
+                x: Math.round((monitor.size.width - OVERLAY_WIDTH_PX) / 2),
+                y: monitor.size.height - OVERLAY_HEIGHT_PX - OVERLAY_BOTTOM_MARGIN_PX,
+            };
+            await setOverlayPosition(target);
+        }
+    } catch (e) {
+        console.warn('overlay-bridge: resetOverlayPosition DB rewrite failed', e);
+    }
+
     try {
         await emit(OVERLAY_RESET_POSITION_EVENT, null);
     } catch (e) {
@@ -147,5 +171,18 @@ export async function requestRecordingToggle(): Promise<void> {
         await emit(EVT_SHORTCUT_TOGGLE, null);
     } catch (e) {
         console.warn('overlay-bridge: requestRecordingToggle failed', e);
+    }
+}
+
+/**
+ * Cancel an in-progress recording. Emits the same event the cancel-hotkey
+ * fires (`EVT_SHORTCUT_CANCEL`) so a click on the overlay's X button takes
+ * the exact same code path as the global shortcut.
+ */
+export async function requestRecordingCancel(): Promise<void> {
+    try {
+        await emit(EVT_SHORTCUT_CANCEL, null);
+    } catch (e) {
+        console.warn('overlay-bridge: requestRecordingCancel failed', e);
     }
 }

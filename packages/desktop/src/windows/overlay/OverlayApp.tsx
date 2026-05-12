@@ -6,11 +6,17 @@ import {
     OVERLAY_RESET_POSITION_EVENT,
     RECORDING_STATE_EVENT,
     exitOverlayPositionSetup,
+    requestRecordingCancel,
     requestRecordingToggle,
 } from '@/lib/overlay-bridge';
 import type { RecordingState } from '@/lib/recording-controller';
 import { listen } from '@tauri-apps/api/event';
-import { PhysicalPosition, currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
+import {
+    PhysicalPosition,
+    availableMonitors,
+    currentMonitor,
+    getCurrentWindow,
+} from '@tauri-apps/api/window';
 import { useEffect, useRef, useState } from 'react';
 import { type OverlayState, OverlayWindow } from './OverlayWindow';
 
@@ -59,6 +65,34 @@ async function applyDefaultPosition(): Promise<void> {
     await getCurrentWindow().setPosition(new PhysicalPosition(target.x, target.y));
 }
 
+/**
+ * Check whether the entire pill rect fits inside at least one currently
+ * connected monitor. Used to discard stale saved positions after monitor
+ * unplug, rearrangement, or resolution changes — without it, `setPosition`
+ * silently parks the window at unreachable coords (e.g. a 4K external that
+ * isn't there anymore) and the pill becomes invisible.
+ */
+async function isSavedPositionVisible(pos: OverlayPosition): Promise<boolean> {
+    try {
+        const monitors = await availableMonitors();
+        return monitors.some((m) => {
+            const left = m.position.x;
+            const top = m.position.y;
+            const right = m.position.x + m.size.width;
+            const bottom = m.position.y + m.size.height;
+            return (
+                pos.x >= left &&
+                pos.y >= top &&
+                pos.x + OVERLAY_WIDTH <= right &&
+                pos.y + OVERLAY_HEIGHT <= bottom
+            );
+        });
+    } catch (e) {
+        console.warn('OverlayApp: availableMonitors failed; treating saved position as valid', e);
+        return true;
+    }
+}
+
 function useOverlayInitialPosition(): void {
     useEffect(() => {
         let cancelled = false;
@@ -66,7 +100,8 @@ function useOverlayInitialPosition(): void {
             try {
                 const saved = await getOverlayPosition();
                 if (cancelled) return;
-                const target = saved ?? (await defaultBottomCenter());
+                const usableSaved = saved && (await isSavedPositionVisible(saved)) ? saved : null;
+                const target = usableSaved ?? (await defaultBottomCenter());
                 if (cancelled || !target) return;
                 await getCurrentWindow().setPosition(new PhysicalPosition(target.x, target.y));
             } catch (e) {
@@ -238,6 +273,7 @@ export function OverlayApp() {
         <OverlayWindow
             state={determineOverlayState(recordingState, setupActive)}
             onStop={() => void requestRecordingToggle()}
+            onCancel={() => void requestRecordingCancel()}
             level={level}
         />
     );

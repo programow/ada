@@ -1,5 +1,5 @@
 use crate::audio::{AudioDeviceInfo, AudioSource, CaptureSession, PermissionState, microphone::MicrophoneSource};
-use crate::markers::{ERR_ACCESSIBILITY_REQUIRED, EVT_SHORTCUT_TOGGLE};
+use crate::markers::{ERR_ACCESSIBILITY_REQUIRED, EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE};
 #[cfg(target_os = "macos")]
 use crate::markers::ERR_INPUT_MONITORING_REQUIRED;
 #[cfg(target_os = "linux")]
@@ -37,6 +37,11 @@ pub struct AppState {
     /// Tauri command thread on macOS.
     pub paster: Arc<dyn Paster>,
     pub current_hotkey: Mutex<Option<Shortcut>>,
+    /// Mirror of `current_hotkey` for the cancel-recording global shortcut.
+    /// Held in parallel so the user can independently rebind either combo;
+    /// the Tauri global-shortcut plugin tracks each `Shortcut` handle
+    /// separately, so two registrations coexist without conflict.
+    pub current_cancel_hotkey: Mutex<Option<Shortcut>>,
     /// macOS Fn-key tap. Lazily initialized the first time the user picks
     /// `"Fn"` as their hotkey. Once running it survives the app lifetime
     /// (CFRunLoop has no clean stop in v1); switching back to a standard
@@ -205,6 +210,22 @@ pub fn stop_recording(
     let id = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
     let session = CaptureSession { id };
     state.audio.stop_capture(&session).map_err(|e| e.to_string())
+}
+
+/// Abort an in-progress recording: stops capture and discards the buffered
+/// audio. The session is dropped without ever reaching the STT pipeline.
+/// Used by the cancel-recording hotkey + the overlay's Cancel button.
+#[tauri::command]
+pub fn cancel_recording(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    let id = Uuid::parse_str(&session_id).map_err(|e| e.to_string())?;
+    let session = CaptureSession { id };
+    state
+        .audio
+        .cancel_capture(&session)
+        .map_err(|e| e.to_string())
 }
 
 /// Returns the loudest sample amplitude observed since the previous call,
@@ -410,6 +431,58 @@ pub fn unregister_hotkey(
     // Note: the macOS Fn-key CGEventTap thread cannot be cleanly stopped
     // in v1. If a Fn tap is running it stays alive; switching to a standard
     // combo just leaves the tap dormant (it only fires on Fn presses).
+    Ok(())
+}
+
+/// Register a global shortcut whose press emits `EVT_SHORTCUT_CANCEL`. The
+/// frontend listens for that event and aborts an in-progress recording.
+///
+/// Unlike `register_hotkey`, the Fn-key path is intentionally NOT supported
+/// here — the cancel hotkey is meant to be distinct from the toggle and
+/// only one Fn-tap can ever be installed, so allowing `"Fn"` would either
+/// collide with the toggle path or silently no-op. The combo parser
+/// (`parse_combo`) still requires at least one modifier, so we don't risk
+/// swallowing bare keys like Esc system-wide.
+#[tauri::command]
+pub fn register_cancel_hotkey(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    combo: String,
+) -> Result<String, String> {
+    let shortcut = parse_combo(&combo).map_err(|e| e.to_string())?;
+    let mut current = state
+        .current_cancel_hotkey
+        .lock()
+        .map_err(|e| e.to_string())?;
+    if let Some(prev) = current.take() {
+        let _ = app.global_shortcut().unregister(prev);
+    }
+    let app_clone = app.clone();
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |_, _, event| {
+            if event.state() == ShortcutState::Pressed {
+                let _ = app_clone.emit(EVT_SHORTCUT_CANCEL, ());
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    *current = Some(shortcut);
+    Ok(format_combo(&shortcut))
+}
+
+#[tauri::command]
+pub fn unregister_cancel_hotkey(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut current = state
+        .current_cancel_hotkey
+        .lock()
+        .map_err(|e| e.to_string())?;
+    if let Some(prev) = current.take() {
+        app.global_shortcut()
+            .unregister(prev)
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

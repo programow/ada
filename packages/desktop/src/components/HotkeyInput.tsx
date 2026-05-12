@@ -19,6 +19,11 @@ export interface HotkeyInputProps {
      * is provided, clicking "Use Fn" only calls this; it does NOT also
      * call `onChange('Fn')` directly — the receiver decides when to commit. */
     onUseFnRequested?: () => void;
+    /** Whether the macOS-only "Use Fn" button is offered. Defaults to true.
+     * The cancel-recording hotkey input passes `false` because the Rust
+     * cancel-hotkey command doesn't support the Fn-tap path (one tap per
+     * process; collides with the toggle's Fn binding). */
+    allowFn?: boolean;
 }
 
 function formatFromEvent(e: KeyboardEvent): string | null {
@@ -60,6 +65,7 @@ export function HotkeyInput({
     onCaptureStart,
     onCaptureCancel,
     onUseFnRequested,
+    allowFn = true,
 }: HotkeyInputProps) {
     const [capturing, setCapturing] = useState(false);
     const platform = usePlatform();
@@ -67,7 +73,7 @@ export function HotkeyInput({
     // "not macOS" so the Fn-key button stays hidden until we know for sure.
     // The cache is warmed at app launch via the onboarding gate, so this
     // null window is effectively a single tick on first paint.
-    const isMac = platform?.os === 'macos';
+    const showFn = allowFn && platform?.os === 'macos';
 
     useEffect(() => {
         if (!capturing) return;
@@ -102,12 +108,12 @@ export function HotkeyInput({
         <div className="flex items-center gap-2">
             <span
                 data-testid="hotkey-display"
-                className="inline-flex h-10 min-w-[12rem] items-center border-3 border-border bg-bg px-3 text-sm font-bold uppercase tracking-widest shadow-neo"
+                className="inline-flex h-10 min-w-[12rem] items-center rounded-xl border border-border bg-muted px-3 text-sm font-semibold tracking-wider"
             >
                 {capturing ? 'Press a key combo…' : value}
             </span>
             <Button onClick={toggle}>{capturing ? 'Cancel' : 'Capture…'}</Button>
-            {isMac && (
+            {showFn && (
                 <Button
                     variant="outline"
                     onClick={() => {

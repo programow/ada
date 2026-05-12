@@ -10,6 +10,12 @@ const OVERLAY_X_KEY = 'overlay_x';
 const OVERLAY_Y_KEY = 'overlay_y';
 const SELECTED_MIC_DEVICE_KEY = 'selected_mic_device_id';
 const HOTKEY_COMBO_KEY = 'hotkey_combo';
+const CANCEL_HOTKEY_COMBO_KEY = 'cancel_hotkey_combo';
+/** Default cancel hotkey applied when the user has never set one. Cmd+Esc
+ * is a sensible macOS default — discoverable, not bound to anything else,
+ * and requires a modifier so the combo parser accepts it (bare Esc would
+ * be rejected and would also be a hostile thing to register globally). */
+const DEFAULT_CANCEL_HOTKEY = 'Cmd+Esc';
 const FN_USAGE_TYPE_ORIGINAL_KEY = 'fn_usage_type_original';
 const RETENTION_DAYS_KEY = 'history_retention_days';
 const HISTORY_LAST_SWEEP_KEY = 'history_last_sweep';
@@ -306,6 +312,22 @@ export async function setHotkeyCombo(combo: string): Promise<void> {
     await conn.execute(
         'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
         [HOTKEY_COMBO_KEY, combo],
+    );
+}
+
+export async function getCancelHotkeyCombo(): Promise<string> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        CANCEL_HOTKEY_COMBO_KEY,
+    ])) as { value: string }[];
+    return rows[0]?.value ?? DEFAULT_CANCEL_HOTKEY;
+}
+
+export async function setCancelHotkeyCombo(combo: string): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [CANCEL_HOTKEY_COMBO_KEY, combo],
     );
 }
 

@@ -19,7 +19,7 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 }));
 vi.mock('./db', () => ({ getOverlayEnabled: getOverlayEnabledMock }));
 
-import { EVT_SHORTCUT_TOGGLE } from './markers';
+import { EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE } from './markers';
 import {
     OVERLAY_POSITION_SETUP_OFF_EVENT,
     OVERLAY_POSITION_SETUP_ON_EVENT,
@@ -29,6 +29,7 @@ import {
     exitOverlayPositionSetup,
     hideOverlayWindow,
     publishRecordingState,
+    requestRecordingCancel,
     requestRecordingToggle,
     resetOverlayPosition,
 } from './overlay-bridge';
@@ -205,5 +206,17 @@ describe('requestRecordingToggle', () => {
     it('does not throw if emit fails', async () => {
         emitMock.mockRejectedValueOnce(new Error('boom'));
         await expect(requestRecordingToggle()).resolves.not.toThrow();
+    });
+});
+
+describe('requestRecordingCancel', () => {
+    it('emits the same event the cancel hotkey fires', async () => {
+        await requestRecordingCancel();
+        expect(emitMock).toHaveBeenCalledWith(EVT_SHORTCUT_CANCEL, null);
+    });
+
+    it('does not throw if emit fails', async () => {
+        emitMock.mockRejectedValueOnce(new Error('boom'));
+        await expect(requestRecordingCancel()).resolves.not.toThrow();
     });
 });

@@ -8,6 +8,7 @@ import {
     type RecordingDeps,
     type RecordingState,
     type SetState,
+    cancel,
     toggle,
 } from './recording-controller';
 
@@ -16,6 +17,7 @@ function makeDeps(): RecordingDeps {
         vox: {
             startRecording: vi.fn(async () => 'session-1'),
             stopRecording: vi.fn(async () => [82, 73, 70, 70]),
+            cancelRecording: vi.fn(async () => undefined),
             pasteText: vi.fn(async () => undefined),
             checkMicrophonePermission: vi.fn(async () => 'Granted' as const),
             requestMicrophonePermission: vi.fn(async () => 'Granted' as const),
@@ -208,5 +210,58 @@ describe('recording-controller toggle', () => {
             expect(deps.vox.startRecording).toHaveBeenCalled();
             expect(states.at(-1)?.kind).toBe('recording');
         });
+    });
+});
+
+describe('recording-controller cancel', () => {
+    let deps: RecordingDeps;
+
+    beforeEach(() => {
+        deps = makeDeps();
+    });
+
+    const recState: RecordingState = {
+        kind: 'recording',
+        sessionId: 'session-1',
+        startedAt: 0,
+    };
+
+    it('cancels from recording: calls cancelRecording, returns to idle, no transcribe/paste', async () => {
+        const { setState, states } = makeSetState();
+        await cancel(recState, deps, setState);
+        expect(deps.vox.cancelRecording).toHaveBeenCalledWith('session-1');
+        expect(deps.transcribe).not.toHaveBeenCalled();
+        expect(deps.vox.pasteText).not.toHaveBeenCalled();
+        expect(deps.vox.stopRecording).not.toHaveBeenCalled();
+        expect(states.map((s) => s.kind)).toEqual(['idle']);
+    });
+
+    it('still returns to idle when the backend cancel call fails', async () => {
+        vi.mocked(deps.vox.cancelRecording).mockRejectedValueOnce(new Error('session not found'));
+        const { setState, states } = makeSetState();
+        await cancel(recState, deps, setState);
+        expect(states.map((s) => s.kind)).toEqual(['idle']);
+        expect(deps.transcribe).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op from idle', async () => {
+        const { setState, states } = makeSetState();
+        await cancel({ kind: 'idle' }, deps, setState);
+        expect(states).toEqual([]);
+        expect(deps.vox.cancelRecording).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op from transcribing (already committed)', async () => {
+        const { setState, states } = makeSetState();
+        await cancel({ kind: 'transcribing' }, deps, setState);
+        expect(states).toEqual([]);
+        expect(deps.vox.cancelRecording).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op from error', async () => {
+        const { setState, states } = makeSetState();
+        await cancel({ kind: 'error', message: 'whatever' }, deps, setState);
+        expect(states).toEqual([]);
+        expect(deps.vox.cancelRecording).not.toHaveBeenCalled();
     });
 });

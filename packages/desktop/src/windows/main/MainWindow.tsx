@@ -118,9 +118,14 @@ export function MainWindowInner() {
     return (
         <main className="min-h-screen bg-bg p-6 text-fg">
             <header className="mb-6 flex flex-row items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold uppercase tracking-tight">Vox Era</h1>
-                    <p className="text-sm font-medium">Multi-provider speech-to-text.</p>
+                <div className="flex flex-row items-center gap-3">
+                    <img src="/logo.svg" alt="" className="h-12 w-12" />
+                    <div>
+                        <h1 className="text-3xl font-extrabold uppercase tracking-tight">
+                            Joe the bird
+                        </h1>
+                        <p className="text-sm font-medium">Multi-provider speech-to-text.</p>
+                    </div>
                 </div>
                 <RecordingStatusPill state={recordingState} />
             </header>
@@ -135,13 +140,13 @@ export function MainWindowInner() {
                     className="flex flex-col gap-6"
                 >
                     <section className="flex flex-col gap-3" data-testid="section-stats">
-                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                             Statistics
                         </h2>
                         <Dashboard refreshKey={refreshKey} />
                     </section>
                     <section className="flex flex-col gap-3" data-testid="section-history">
-                        <h2 className="text-xs font-extrabold uppercase tracking-widest opacity-70">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                             Recent transcriptions
                         </h2>
                         <History

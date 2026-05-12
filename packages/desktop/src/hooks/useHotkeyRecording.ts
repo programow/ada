@@ -1,7 +1,12 @@
 import { vox } from '@/lib/invoke';
-import { EVT_SHORTCUT_TOGGLE } from '@/lib/markers';
+import { EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE } from '@/lib/markers';
 import { publishRecordingState } from '@/lib/overlay-bridge';
-import { type RecordingDeps, type RecordingState, toggle } from '@/lib/recording-controller';
+import {
+    type RecordingDeps,
+    type RecordingState,
+    cancel,
+    toggle,
+} from '@/lib/recording-controller';
 import { transcribe } from '@/lib/transcribe';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useRef, useState } from 'react';
@@ -39,16 +44,21 @@ export function useHotkeyRecording(options: UseHotkeyRecordingOptions = {}): {
 
     useEffect(() => {
         let cancelled = false;
-        const unlistenPromise = listen(SHORTCUT_EVENT, () => {
-            void toggle(stateRef.current, depsRef.current, (next) => {
-                if (cancelled) return;
-                setState(next);
-                void publishRef.current(next);
-            });
+        const applyNext = (next: RecordingState) => {
+            if (cancelled) return;
+            setState(next);
+            void publishRef.current(next);
+        };
+        const togglePromise = listen(SHORTCUT_EVENT, () => {
+            void toggle(stateRef.current, depsRef.current, applyNext);
+        });
+        const cancelPromise = listen(EVT_SHORTCUT_CANCEL, () => {
+            void cancel(stateRef.current, depsRef.current, applyNext);
         });
         return () => {
             cancelled = true;
-            void unlistenPromise.then((fn) => fn());
+            void togglePromise.then((fn) => fn());
+            void cancelPromise.then((fn) => fn());
         };
     }, []);
 

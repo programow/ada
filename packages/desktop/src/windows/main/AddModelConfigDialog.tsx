@@ -129,7 +129,7 @@ export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigD
                                 <select
                                     id={apiKeyId}
                                     data-testid="api-key-select"
-                                    className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                                    className="h-10 rounded-xl border border-border bg-surface px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40 focus-visible:border-main"
                                     value={selectedKey}
                                     onChange={(e) => setSelectedKey(e.target.value)}
                                 >
@@ -145,7 +145,7 @@ export function AddModelConfigDialog({ open, onClose, onAdded }: AddModelConfigD
                                 <select
                                     id={modelId}
                                     data-testid="model-select"
-                                    className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                                    className="h-10 rounded-xl border border-border bg-surface px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40 focus-visible:border-main"
                                     value={selectedModel}
                                     onChange={(e) => setSelectedModel(e.target.value)}
                                 >

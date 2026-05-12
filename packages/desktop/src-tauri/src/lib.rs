@@ -54,6 +54,7 @@ pub fn run() {
             commands::open_settings_panel,
             commands::start_recording,
             commands::stop_recording,
+            commands::cancel_recording,
             commands::get_recording_level,
             commands::get_secret,
             commands::set_secret,
@@ -62,6 +63,8 @@ pub fn run() {
             commands::paste_text,
             commands::register_hotkey,
             commands::unregister_hotkey,
+            commands::register_cancel_hotkey,
+            commands::unregister_cancel_hotkey,
             commands::get_fn_usage_type,
             commands::set_fn_usage_type,
             commands::get_platform_info,
@@ -77,6 +80,7 @@ pub fn run() {
                 // into a `spawn_blocking` task without an extra trait surface.
                 paster: Arc::new(EnigoPaster::new(clipboard)),
                 current_hotkey: Mutex::new(None),
+                current_cancel_hotkey: Mutex::new(None),
                 #[cfg(target_os = "macos")]
                 fn_tap: Mutex::new(None),
             };

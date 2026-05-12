@@ -21,3 +21,4 @@ export const ERR_MIC_DENIED = 'mic-denied:';
 export const ERR_WAYLAND_PASTE_UNSUPPORTED = 'wayland-paste-unsupported:';
 export const ERR_INPUT_MONITORING_REQUIRED = 'input-monitoring-required:';
 export const EVT_SHORTCUT_TOGGLE = 'vox-era://shortcut-toggle';
+export const EVT_SHORTCUT_CANCEL = 'vox-era://shortcut-cancel';

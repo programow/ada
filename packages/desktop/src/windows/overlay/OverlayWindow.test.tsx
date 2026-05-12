@@ -78,6 +78,29 @@ describe('<OverlayWindow />', () => {
         expect(onStop).toHaveBeenCalledTimes(1);
     });
 
+    it('renders a Cancel button while recording', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+    });
+
+    it('does not render a Cancel button while transcribing', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
+    });
+
+    it('does not render a Cancel button while positioning', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
+    });
+
+    it('invokes onCancel when the Cancel button is clicked', async () => {
+        const onCancel = vi.fn();
+        const user = userEvent.setup();
+        render(<OverlayWindow state={{ kind: 'recording' }} onCancel={onCancel} />);
+        await user.click(screen.getByRole('button', { name: /cancel/i }));
+        expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
     it('renders a waveform with all bars inactive when level defaults to 0', () => {
         render(<OverlayWindow state={{ kind: 'recording' }} />);
         for (const i of [0, 1, 2, 3]) {
@@ -87,8 +110,8 @@ describe('<OverlayWindow />', () => {
     });
 
     it('activates bars whose threshold the level has crossed', () => {
-        render(<OverlayWindow state={{ kind: 'recording' }} level={0.55} />);
-        // Thresholds are 0.1, 0.3, 0.5, 0.7 — 0.55 crosses the first three.
+        render(<OverlayWindow state={{ kind: 'recording' }} level={0.07} />);
+        // Thresholds are 0.008, 0.025, 0.05, 0.1 — 0.07 crosses the first three.
         expect(screen.getByTestId('overlay-waveform-bar-0')).toHaveAttribute('data-active', 'true');
         expect(screen.getByTestId('overlay-waveform-bar-1')).toHaveAttribute('data-active', 'true');
         expect(screen.getByTestId('overlay-waveform-bar-2')).toHaveAttribute('data-active', 'true');

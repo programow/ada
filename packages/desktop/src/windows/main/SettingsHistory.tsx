@@ -46,7 +46,7 @@ export function SettingsHistory() {
                     <Label htmlFor={retainId}>Retain transcriptions for</Label>
                     <select
                         id={retainId}
-                        className="h-10 border-3 border-border bg-bg px-3 text-sm font-bold shadow-neo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+                        className="h-10 rounded-xl border border-border bg-surface px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main/40 focus-visible:border-main"
                         value={String(retainDays)}
                         onChange={(e) => void handleChange(Number(e.target.value))}
                     >

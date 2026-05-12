@@ -18,6 +18,7 @@ export interface RecordingDeps {
         typeof voxApi,
         | 'startRecording'
         | 'stopRecording'
+        | 'cancelRecording'
         | 'pasteText'
         | 'checkMicrophonePermission'
         | 'requestMicrophonePermission'
@@ -179,4 +180,27 @@ export async function toggle(
             await startFromIdle(deps, setState);
             return;
     }
+}
+
+/**
+ * Abort an in-progress recording. Tells the Rust side to drop the buffered
+ * audio (no STT request is made, no paste happens) and transitions straight
+ * back to `idle`. No-op in any state other than `recording` — once the audio
+ * has been handed off to the transcribe path we're committed.
+ */
+export async function cancel(
+    state: RecordingState,
+    deps: RecordingDeps,
+    setState: SetState,
+): Promise<void> {
+    if (state.kind !== 'recording') return;
+    try {
+        await deps.vox.cancelRecording(state.sessionId);
+    } catch (e) {
+        // Cancellation is the user telling us they don't want this. Swallow
+        // backend errors so a quirky cancel can never strand the UI in a
+        // half-recording state — log and return to idle either way.
+        console.warn('cancelRecording failed; returning to idle anyway', e);
+    }
+    setState({ kind: 'idle' });
 }

@@ -1,4 +1,5 @@
 import {
+    getCancelHotkeyCombo,
     getHistoryLastSweep,
     getHotkeyCombo,
     getRetentionDays,
@@ -23,6 +24,16 @@ export default function App() {
                 await vox.registerHotkey(combo);
             } catch (e) {
                 console.error('initial registerHotkey failed', e);
+            }
+        })();
+        void (async () => {
+            try {
+                const cancelCombo = await getCancelHotkeyCombo();
+                await vox.registerCancelHotkey(cancelCombo);
+            } catch (e) {
+                // Cancel-hotkey registration must never block recording. Log
+                // and continue — the overlay's Cancel button still works.
+                console.error('initial registerCancelHotkey failed', e);
             }
         })();
     }, [isMain]);

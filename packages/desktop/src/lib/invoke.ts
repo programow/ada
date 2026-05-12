@@ -58,6 +58,12 @@ export const vox = {
     startRecording: (deviceId?: string) => invoke<string>('start_recording', { deviceId }),
     stopRecording: (sessionId: string) => invoke<number[]>('stop_recording', { sessionId }),
     /**
+     * Abort an in-progress recording without producing audio. The Rust
+     * side stops capture, drops the buffered samples, and removes the
+     * session from its registry. No STT request is ever issued.
+     */
+    cancelRecording: (sessionId: string) => invoke<void>('cancel_recording', { sessionId }),
+    /**
      * Read the loudest sample amplitude (0..1) observed since the previous
      * call. The Rust side resets the tracked peak on each read, so polling
      * this drives a real-time meter that decays naturally to zero.
@@ -66,6 +72,14 @@ export const vox = {
 
     registerHotkey: (combo: string) => invoke<string>('register_hotkey', { combo }),
     unregisterHotkey: () => invoke<void>('unregister_hotkey'),
+    /**
+     * Register a global shortcut whose press cancels an in-progress
+     * recording (via `EVT_SHORTCUT_CANCEL`). Independent of the toggle
+     * hotkey — both registrations coexist. Combo parser still requires at
+     * least one modifier so bare keys can't be swallowed system-wide.
+     */
+    registerCancelHotkey: (combo: string) => invoke<string>('register_cancel_hotkey', { combo }),
+    unregisterCancelHotkey: () => invoke<void>('unregister_cancel_hotkey'),
 
     /** macOS only: read the AppleFnUsageType setting (0..3) or null if unset. */
     getFnUsageType: () => invoke<number | null>('get_fn_usage_type'),
