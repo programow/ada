@@ -14,13 +14,7 @@ export default function HomePage() {
             <Features />
             <ProvidersGrid />
             <PrivacyTeaser />
-            <Download
-                manifest={{
-                    macUrl: 'https://github.com/programow/vox-era/releases/latest',
-                    winUrl: 'https://github.com/programow/vox-era/releases/latest',
-                    linuxUrl: '/install-linux',
-                }}
-            />
+            <Download />
             <Footer version="0.0.0" />
         </>
     );

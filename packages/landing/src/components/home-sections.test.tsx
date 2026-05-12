@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Demo } from './demo';
 import { Download } from './download';
 import { Features } from './features';
@@ -42,10 +42,31 @@ describe('home sections', () => {
         );
     });
 
-    it('Download renders three platform buttons', () => {
-        render(<Download manifest={{ macUrl: '#', winUrl: '#', linuxUrl: '#' }} />);
-        expect(screen.getByRole('link', { name: /macOS/i })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /Windows/i })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /Linux/i })).toBeInTheDocument();
+    it('Download resolves manifest and renders a mac link with coming-soon for null platforms', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async () =>
+                    new Response(
+                        JSON.stringify({
+                            version: '0.1.0',
+                            mac: 'https://example.test/Vox-Era.dmg',
+                            win: null,
+                            linux: null,
+                        }),
+                        { status: 200 },
+                    ),
+            ) as typeof fetch,
+        );
+        render(<Download />);
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: /macOS/i })).toHaveAttribute(
+                'href',
+                'https://example.test/Vox-Era.dmg',
+            );
+        });
+        expect(screen.queryByRole('link', { name: /Windows/i })).toBeNull();
+        expect(screen.queryByRole('link', { name: /Linux/i })).toBeNull();
+        expect(screen.getAllByText(/coming soon/i)).toHaveLength(2);
     });
 });
