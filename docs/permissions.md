@@ -1,11 +1,12 @@
 # Permissions
 
-Vox Era needs two privacy grants on platforms that gate them:
+Vox Era needs up to three privacy grants on platforms that gate them:
 
-- **Microphone** — to record audio. Required everywhere.
-- **Accessibility / Input Monitoring** — to inject the synthetic `Cmd+V` / `Ctrl+V` keystroke and (on macOS) to listen to the Fn key via `CGEventTap`. Required on macOS; not gated on Linux or Windows.
+- **Microphone** — to record audio. Gated on macOS (TCC) and Windows; never gated on Linux.
+- **Accessibility** — to inject the synthetic `Cmd+V` / `Ctrl+V` paste keystroke. Gated on macOS only; Windows allows `SendInput` without a per-app grant, Linux's `enigo` (XTest / libei) works without one.
+- **Input Monitoring** — only when the user picks the macOS Fn key as their hotkey. Gates `CGEventTap`, which is a distinct TCC bucket from Accessibility (`kTCCServiceListenEvent` vs `kTCCServiceAccessibility`).
 
-The per-platform implementations live under `packages/desktop/src-tauri/src/audio/permissions/`. The webview never speaks to the OS directly — it calls the Tauri commands `check_microphone_permission`, `request_microphone_permission`, `check_accessibility_permission`, `request_accessibility_permission`, and `open_settings_panel` (all defined in `commands.rs`).
+Per-platform implementations live under `packages/desktop/src-tauri/src/audio/permissions/`. The webview never speaks to the OS directly — it calls the Tauri commands `check_*_permission`, `request_*_permission`, and `open_settings_panel`.
 
 ## macOS
 
@@ -13,149 +14,82 @@ The per-platform implementations live under `packages/desktop/src-tauri/src/audi
 
 **Granted via:** TCC, prompted on first call to `AVCaptureDevice.requestAccess(forMediaType:)`.
 
-**Required pieces:**
+Required pieces:
 
-1. **Entitlement** — `com.apple.security.device.audio-input` must be signed into every binary in the bundle that calls into CoreAudio. Source: `packages/desktop/src-tauri/entitlements.plist`. Wired to the bundle via `tauri.conf.json` `bundle.macOS.entitlements`. Tauri's bundler propagates the entitlement to nested binaries during `tauri build` — unlike Electron, no manual `--deep` re-sign step is needed.
-2. **Usage description** — `NSMicrophoneUsageDescription` in `Info.plist`. Configured in `packages/desktop/src-tauri/Info.plist` and referenced from `tauri.conf.json` `bundle.macOS.infoPlist`. Without this string, macOS rejects the permission request without showing a prompt.
-3. **Runtime trigger** — the React webview calls `vox.requestMicrophonePermission()`, which dispatches to `audio::permissions::macos::request_microphone_permission`. That function calls `AVCaptureDevice.requestAccess` via `objc2-av-foundation`. The closure is bridged through `block2`.
+1. **Entitlement** — `com.apple.security.device.audio-input` signed into the bundle. Source: `packages/desktop/src-tauri/entitlements.plist`. Wired via `tauri.conf.json` → `bundle.macOS.entitlements`. Tauri's bundler propagates the entitlement to nested binaries during `tauri build`; no `codesign --deep` re-sign step is needed (unlike Electron).
+2. **Usage description** — `NSMicrophoneUsageDescription` in `packages/desktop/src-tauri/Info.plist`, wired via `tauri.conf.json` → `bundle.macOS.infoPlist`. Without this string macOS rejects the request without showing a prompt.
+3. **Runtime trigger** — the webview calls `vox.requestMicrophonePermission()`. The recording controller deliberately gates on permission *before* cpal opens an input stream (see `recording-controller.ts`), because cpal's implicit prompt path is unreliable on production-signed bundles.
 
-**To check status:**
+### Accessibility (paste keystroke)
 
-- System Settings → Privacy & Security → Microphone → look for `Vox Era`.
-- From the app: the Settings tab surfaces the current `PermissionState` from `vox.checkMicrophonePermission()`.
-- Diagnostic slash command: `/diagnose` (read-only).
+**Granted via:** TCC, prompted on first attempt to post a synthetic keyboard event via `CGEventPost`.
 
-### Accessibility (Fn-key shortcut + paste)
+- **Runtime trigger** — `audio::permissions::macos::request_accessibility_permission` calls `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt: true`. macOS opens System Settings → Privacy & Security → Accessibility; the user must flip the toggle.
+- **Why:** the paste step uses `enigo` which lowers to `CGEventPost`. macOS gates synthetic event injection on Accessibility.
+- **Bundle scope:** per `tauri.conf.json` `identifier`, i.e. `com.vhtechnology.voxera`.
+- **Polling vs. prompting:** `check_accessibility_permission` (non-prompting) is what the onboarding poll uses every second; `check_accessibility_permission_prompting` (rate-limited prompt) is what the explicit "Grant Accessibility" button calls.
 
-**Granted via:** TCC, prompted on first attempt to (a) post a synthetic keyboard event via `CGEventPost`, or (b) install the `CGEventTap` for the Fn key.
+### Input Monitoring (Fn-key hotkey)
 
-**Required pieces:**
+**Granted via:** TCC, prompted on first attempt to install a `CGEventTap`.
 
-1. **Runtime trigger** — `audio::permissions::macos::request_accessibility_permission` calls `AXIsProcessTrustedWithOptions` with the `kAXTrustedCheckOptionPrompt` option set. macOS opens System Settings → Privacy & Security → Accessibility; the user must flip the toggle.
-2. **Approval scope** — the toggle is per-bundle-id. The bundle id is `com.vhtechnology.voxera` (set in `tauri.conf.json` `identifier`).
+- **Runtime trigger** — only when the user picks `HotkeyCombo::Fn` in Settings → Recording. `MacOsFnTap::register` installs the tap; if Input Monitoring is missing, the manager surfaces `ShortcutError::InputMonitoringRequired` and the UI prompts the user to grant.
+- **Usage description** — `NSInputMonitoringUsageDescription` in `Info.plist`. Required for macOS to show the request dialog.
+- **TCC propagation gotcha:** macOS only re-reads Input Monitoring grants on process launch. After the user grants, Vox Era must restart — hence the `restart_app` Tauri command exposed to the webview.
 
-**Why this is needed:**
+### Apple Events (optional)
 
-- The paste step uses `enigo::Enigo::key_down(Key::Meta) → key_click(Key::V) → key_up(Key::Meta)` which lowers to `CGEventPost`. macOS treats event injection as input monitoring, gated by Accessibility.
-- The macOS Fn-key shortcut backend (`shortcut/macos_fn.rs`) installs a `CGEventTap` filtered to `flagsChanged`. Event taps require Accessibility too. If the user picks `HotkeyCombo::Fn`, the manager's `register()` must succeed, which surfaces `ShortcutError::AccessibilityRequired` if the grant is missing.
+`NSAppleEventsUsageDescription` is present in `Info.plist` because Vox Era may use Apple Events to refocus the previously-focused app before pasting. No runtime code requests this today; the string is staged for that hardening.
 
 ## Windows
 
 ### Microphone
 
-Windows 10/11 gates microphone access via the privacy settings UI (`Settings → Privacy → Microphone`). Behavior:
+Windows 10/11 gates microphone access via the privacy settings UI (`Settings → Privacy → Microphone`).
 
-- The first WASAPI capture call (made by `cpal`) succeeds silently or fails depending on the global "Allow apps to access your microphone" toggle and the per-app toggle.
-- `audio::permissions::windows::check_microphone_permission` reads the registry under `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone` to surface a coarse `Granted` / `Denied` / `NotDetermined`.
-- `request_microphone_permission` opens the Privacy panel via `ms-settings:privacy-microphone` (handled by `open_settings_microphone_panel`); there is no Win32 prompt API.
+- `audio::permissions::windows::check_microphone_permission` reads the registry under `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone` and surfaces a coarse `Granted` / `Denied` / `NotDetermined`.
+- `request_microphone_permission` opens the Privacy panel via `ms-settings:privacy-microphone` (handled by `open_settings_panel`); there is no Win32 prompt API.
 
-### Accessibility
+### Accessibility / Input Monitoring
 
-Not gated. `check_accessibility_permission` always returns `Granted`. Windows allows synthetic key injection via `SendInput` without a per-app grant.
+Not gated. The Windows variants of `check_accessibility_permission` and `check_input_monitoring_permission` return `Granted`. Windows allows synthetic key injection via `SendInput` without a per-app grant.
 
 ## Linux
 
 ### Microphone
 
-Linux desktops do not gate microphone access at the OS level. PulseAudio / PipeWire grants by default; capture starts working as soon as `cpal` opens a device.
+Linux desktops do not gate microphone access at the OS level. PulseAudio / PipeWire grants by default; `cpal` opens the input device directly. `check_microphone_permission` returns `Granted` unconditionally.
 
-For Flatpak / sandboxed builds, the `device=all` permission must be set; that's a Plan D concern.
+Flatpak / sandboxed builds need the `device=all` permission — that's a Plan D concern.
 
-`check_microphone_permission` returns `Granted` unconditionally on Linux today.
+### Accessibility / Input Monitoring
 
-### Accessibility
+Not gated. Synthetic keystrokes via `enigo` (XTest under X11) work without a per-app grant.
 
-Not gated. Synthetic keystrokes via `enigo` (XTest under X11, libei or virtual-input under Wayland) work without a per-app grant on most distros.
+**Wayland caveat:** Wayland blocks synthetic keystrokes for non-compositor apps. When `platform::is_wayland_session()` is true, the paste path returns `ERR_WAYLAND_PASTE_UNSUPPORTED` (defined in `markers.rs`). The webview catches this marker, leaves the text on the clipboard, and prompts the user to press Ctrl+V manually. The onboarding screen surfaces a Wayland paste-fallback info banner on these sessions.
 
-## Dev mode vs packaged build
+## Dev mode vs packaged build (macOS)
 
-`bun run tauri:dev` runs the Tauri app from your terminal in debug mode. On macOS, both Microphone and Accessibility permissions are inherited from the parent process — specifically, from your terminal application (Terminal.app, iTerm, Ghostty, etc.). If the terminal already has those grants, dev-mode Vox Era just works without prompting. **This means a dev build is not a fair test of the packaged permission flow.**
+`bun run tauri:dev` runs Vox Era from your terminal in debug mode. macOS Microphone, Accessibility, and Input Monitoring grants are inherited from the parent process — i.e. from your terminal application (Terminal.app, iTerm, Ghostty, etc.). If the terminal already has those grants, dev-mode Vox Era just works without prompting. **This means a dev build is not a fair test of the packaged permission flow.**
 
-A packaged build (built with `tauri build` and installed to `/Applications/Vox Era.app`) has its own bundle id (`com.vhtechnology.voxera`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
+A packaged build (`/Applications/Vox Era.app`) has its own bundle id (`com.vhtechnology.voxera`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
 
-Windows and Linux do not have this dev-mode shortcut; the privacy-settings panels see the binary path, not the parent process.
+Windows and Linux do not have this dev-mode shortcut; the privacy panels see the binary path, not the parent process.
 
 ## Resetting (macOS)
-Ada needs two macOS privacy grants to function: **Microphone** (to
-record audio) and **Accessibility** (to inject the synthetic `Cmd+V`
-keystroke into the focused application). Both are gated by macOS TCC
-and both behave differently in dev mode versus a packaged build.
-
-## Microphone
-
-**Granted via:** TCC, prompted on first `getUserMedia` call.
-
-**Required pieces:**
-
-1. **Entitlement** — `com.apple.security.device.audio-input` must be
-   signed into every binary in the bundle that calls into CoreAudio.
-   Source: [`entitlements.plist`](../entitlements.plist). Applied during
-   the re-sign step in the build ritual; see
-   [build-and-release.md](build-and-release.md).
-2. **Usage description** — `NSMicrophoneUsageDescription` in
-   `Info.plist`. Set via `build.mac.extendInfo` in `package.json`.
-   Without it, macOS rejects the permission request without a prompt.
-3. **Runtime trigger** — `main.js` calls
-   `systemPreferences.askForMediaAccess('microphone')` on app start.
-   This is what produces the prompt the user sees.
-
-**To check status:**
-
-- System Settings → Privacy & Security → Microphone → look for `Ada`.
-- Or via the diagnostic slash command: `/diagnose-mic` (read-only).
-
-## Accessibility
-
-**Granted via:** TCC, prompted on first attempt to post a synthetic
-keyboard event.
-
-**Required pieces:**
-
-1. **Runtime trigger** — `main.js` calls
-   `systemPreferences.isTrustedAccessibilityClient(true)` on app start.
-   The `true` argument tells macOS to prompt the user if the app
-   isn't already trusted.
-2. **Approval scope** — the user must toggle Ada on under System
-   Settings → Privacy & Security → Accessibility. Unlike Microphone,
-   the prompt only opens System Settings; the user has to flip the
-   toggle themselves and (depending on macOS version) authenticate.
-
-**Why Accessibility is needed:** the paste step uses
-`CGEventPost(.cghidEventTap, ...)` to inject `Cmd+V` into whichever
-app has focus. macOS treats event injection as input monitoring,
-which is gated by Accessibility, not Microphone.
-
-## Dev mode vs packaged build
-
-`npm start` runs Electron from your terminal. Both Microphone and
-Accessibility permissions are inherited from the parent process —
-specifically, from your terminal application (Terminal.app, iTerm,
-Ghostty, etc.). If the terminal already has those grants, dev-mode
-Ada just works without prompting. This is convenient but it means a
-dev build is **not** a fair test of the packaged permission flow.
-
-A packaged build (`/Applications/Ada.app`) has its own bundle id
-(`com.programow.ada`) and asks TCC for its own grants. Always test
-permission-related changes against the packaged build.
-
-## Resetting
 
 If prompts no longer appear, TCC has cached a decision. Reset with:
 
 ```bash
 tccutil reset Microphone com.vhtechnology.voxera
 tccutil reset Accessibility com.vhtechnology.voxera
+tccutil reset ListenEvent com.vhtechnology.voxera
 ```
 
 Or run `/reset-perms`. Then relaunch Vox Era.
 
 ## Spec cross-references
 
-- §6.3 — Per-platform microphone permission flow
-- §6.10 — Accessibility for paste keystroke and macOS Fn-key tap
-tccutil reset Microphone com.programow.ada
-tccutil reset Accessibility com.programow.ada
-```
-
-Or run [`/reset-perms`](../.claude/commands/reset-perms.md). Then
-relaunch Ada.
+- Plan B §6.3 — Per-platform microphone permission flow.
+- Plan B §6.10 — Accessibility for paste.
+- Recording-settings-and-history plan §2 — Input Monitoring as a separate TCC bucket; Fn-key tap flow.

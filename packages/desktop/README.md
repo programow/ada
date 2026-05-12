@@ -15,22 +15,24 @@ packages/desktop/
     providers/        9 STT provider adapters + types + registry
     components/ui/    shadcn-neobrutalism primitives
     windows/
-      main/           Dashboard, History, Settings tabs
-      overlay/        Transparent recording overlay
+      main/           Dashboard, History, Settings tabs, Onboarding screen, API key / model config dialogs
+      overlay/        Transparent recording overlay (with level meter + cancel)
   src-tauri/          Rust core
     src/
-      lib.rs          Crate entry, plugin wiring, command registration
-      commands.rs     #[tauri::command] surface
-      audio/          AudioSource trait, cpal impl, per-OS permissions
+      lib.rs          Crate entry, plugin wiring, command registration, tray + overlay setup
+      commands.rs     #[tauri::command] surface, AppState, PlatformInfo
+      markers.rs      Event + error string constants mirrored in lib/markers.ts
+      platform/       Wayland session detection helper
+      audio/          AudioSource trait, cpal impl, per-OS permissions (mic / accessibility / input-monitoring)
       secrets/        Vault trait, KeyringVault, redacted SecretKey
-      history/        sqlx repo + stats + retention against the SQL plugin
-      shortcut/       Hotkey manager + macOS Fn-key CGEventTap
+      history/        SQL migration registration only (data access lives in lib/db.ts)
+      shortcut/       HotkeyCombo + parse/format, macOS Fn-key CGEventTap
       tray/           Tray icon + menu (programmatic, no PNG)
-      clipboard/      Clipboard trait + in-memory impl
+      clipboard/      Clipboard trait + TauriClipboard + InMemoryClipboard
       paste/          Paster trait + EnigoPaster
-      settings/       Settings struct + defaults (tauri-plugin-store)
+      overlay_panel.rs macOS NSPanel conversion for the recording overlay
     capabilities/     Tauri capability JSON (per-window plugin grants)
-    migrations/       SQL migration files
+    migrations/       SQL migration files (transcriptions, api_keys, model_configs, app_state)
     Cargo.toml
     tauri.conf.json
   tests/

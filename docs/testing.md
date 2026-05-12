@@ -13,10 +13,14 @@ Vox Era's test pyramid has **four layers**, each with a clear contract about wha
 Examples:
 
 - `audio/mod.rs` — `PermissionState` (de)serialization round-trips.
-- `secrets/mod.rs` — `InMemoryVault` get/set/delete/list semantics; `SecretKey::Debug` redaction.
-- `history/repo.rs` — SQL repo against a fresh `sqlite::memory:` pool with the migrations applied per test.
-- `history/stats.rs` and `history/retention.rs` — same in-memory SQL pattern.
+- `secrets/mod.rs` — `InMemoryVault` get/set/delete semantics; `SecretKey::Debug` redaction.
+- `audio/microphone.rs` — WAV encoding (`encode_wav_pcm16`) round-trip; session bookkeeping; peak-level reset on read; poisoned-mutex behaviour.
+- `clipboard/mod.rs` — `InMemoryClipboard` read/write/overwrite + trait-object behaviour.
+- `paste/mod.rs` — `RecordingPaster` records each call; `EnigoPaster` writes through to the trait object.
+- `shortcut/parse.rs` — combo parser / formatter round-trips, case insensitivity, alias normalisation (Option/Alt, Cmd/Meta), function/arrow keys, exhaustive modifier combinations.
 - `audio/permissions/mod.rs` — the platform module is wired up and returns *some* `PermissionState`. We deliberately do not assert which, because CI runners and dev machines differ.
+
+History CRUD, retention, and stats live JS-side in `lib/db.ts` rather than in Rust (a divergence from Plan B). They are tested under the Vitest layer below — see `lib/db.test.ts` and the `__tests__/db-harness.ts` helper, which runs against an in-process `better-sqlite3` database with the migration SQL applied per test.
 
 **What it does NOT do:** spin up a Tauri app, talk to the real keyring, talk to the real microphone, hit any network.
 
@@ -28,8 +32,11 @@ Examples:
 
 Examples:
 
-- `lib/utils.test.ts`, `lib/invoke.test.ts` — pure helpers and the `invoke` wrapper (with `invoke` mocked).
-- `providers/<id>.test.ts` — the contract test. Asserts presence in `PROVIDERS`, non-empty `defaultModels`, every default model has pricing, every pricing entry corresponds to a default model. For providers with `listModels`, also covers the request shape and a couple of error branches via `vi.fn()` mocking of `fetch`.
+- `lib/utils.test.ts`, `lib/invoke.test.ts`, `lib/invoke.contract.test.ts` — pure helpers and the `invoke` wrapper. `invoke.contract.test.ts` pins the TS wrapper signatures against the Rust command surface.
+- `lib/markers.contract.test.ts` — parses `src-tauri/src/markers.rs` as text and asserts every `pub const NAME: &str = "VALUE";` has a matching named export in `lib/markers.ts` with an identical value. This is the load-bearing guard against Rust/TS drift on event names and error prefixes.
+- `lib/db.test.ts` (≈32 KB) — covers api_keys, model_configs, transcription history, retention purges, app_state settings, and stats aggregations against `better-sqlite3`.
+- `lib/recording-controller.test.ts` — the state-machine, with `vox.*` mocked.
+- `providers/<id>.test.ts` — the contract test. Asserts presence in `PROVIDERS`, non-empty `defaultModels`, every default model has pricing, every pricing entry corresponds to a default model. For providers with `listModels`, also covers the request shape and a couple of error branches via `vi.fn()` mocking of `fetch`. `assemblyai.test.ts` additionally pins the `speech_model` → `speech_models` request-body rewrite.
 - `windows/main/*.test.tsx` and `windows/overlay/*.test.tsx` — React Testing Library renders against happy-dom; user interactions via `@testing-library/user-event`.
 
 **What it does NOT do:** make real network calls, touch a real Tauri app, exercise the Rust code path. `@tauri-apps/api/core`'s `invoke` is mocked.

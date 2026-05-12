@@ -6,33 +6,31 @@ Vox Era is **bring-your-own-key** (BYOK). Each user supplies their own API key p
 
 | Platform | Backend | Notes |
 |---|---|---|
-| macOS | Apple Keychain | `apple-native` feature on `keyring` (uses Security.framework). One keychain item per provider id. |
-| Windows | Windows Credential Manager | `windows-native` feature. One target per provider id. |
+| macOS | Apple Keychain | `apple-native` feature on `keyring` (uses Security.framework). One keychain item per `secret_id`. |
+| Windows | Windows Credential Manager | `windows-native` feature. One target per `secret_id`. |
 | Linux | Secret Service / libsecret | `sync-secret-service` feature. Requires a running secret-service daemon (gnome-keyring, KWallet, etc.). The user must have unlocked their login keyring. |
 
-The service name used across all platforms is `vox-era` (`secrets::SERVICE_NAME` in `secrets/mod.rs`). The account name is the provider id (`openai`, `groq`, `deepgram`, etc.).
+The service name used across all platforms is `vox-era` (`secrets::SERVICE_NAME` in `secrets/mod.rs`). The account name is an opaque `secret_id` — in practice, the `api_keys.id` UUID stored in the SQLite db (`migrations/0002_provider_configs.sql`). Storing by UUID rather than by provider id is what lets a user keep multiple keys per provider ("Personal" / "Work") and pin each model config to a specific key. Which keys exist for which provider is read from the `api_keys` table, not from the keychain itself.
 
 ## Code surface
 
 ```rust
 pub trait Vault: Send + Sync {
-    fn get(&self, provider_id: &str) -> Result<Option<Zeroizing<String>>, SecretsError>;
-    fn set(&self, provider_id: &str, key: &str) -> Result<(), SecretsError>;
-    fn delete(&self, provider_id: &str) -> Result<(), SecretsError>;
-    fn list_configured(&self) -> Result<Vec<String>, SecretsError>;
+    fn get(&self, secret_id: &str) -> Result<Option<Zeroizing<String>>, SecretsError>;
+    fn set(&self, secret_id: &str, key: &str) -> Result<(), SecretsError>;
+    fn delete(&self, secret_id: &str) -> Result<(), SecretsError>;
 }
 ```
 
 Production wires `KeyringVault` (in `secrets/keyring_vault.rs`); tests use `InMemoryVault` (in `secrets/mock.rs`).
 
-The webview accesses the vault exclusively through four Tauri commands defined in `commands.rs`:
+The webview accesses the vault exclusively through three Tauri commands defined in `commands.rs`:
 
-- `get_secret(provider_id) → Option<String>`
-- `set_secret(provider_id, key) → ()`
-- `delete_secret(provider_id) → ()`
-- `list_configured_providers() → Vec<String>`
+- `get_secret(secretId) → string | null`
+- `set_secret(secretId, key) → ()`
+- `delete_secret(secretId) → ()`
 
-The TS wrapper exposes them as `vox.getSecret`, `vox.setSecret`, `vox.deleteSecret`, `vox.listConfiguredProviders` (`src/lib/invoke.ts`).
+The TS wrapper exposes them as `vox.getSecret`, `vox.setSecret`, `vox.deleteSecret` (`src/lib/invoke.ts`). Discovery of which secret ids exist is a SQL concern handled by `lib/db.ts` against the `api_keys` table.
 
 ## Defense in depth
 
@@ -86,7 +84,7 @@ The Rust crate uses `env_logger` (initialized in `lib.rs`). Log lines come from 
 
 - **Linux: Secret Service unavailable.** If gnome-keyring / KWallet aren't running (some headless or custom WMs), `KeyringVault::set` returns `SecretsError::BackendUnavailable`. The user-visible error must direct them to start a secret-service implementation. There is no plaintext fallback.
 - **CI runners:** the desktop integration tests use `InMemoryVault`; `cargo test --lib` does not touch the real keyring.
-- **Rotating a key:** the user opens Settings → Providers → the provider → paste a new key. `set_secret` overwrites in place; no separate revoke step is needed at the keychain level. The user must revoke the old key with the provider directly.
+- **Rotating a key:** the user opens Settings → API Keys, picks the entry, and replaces the key value. `set_secret` overwrites in place; no separate revoke step is needed at the keychain level. The user must revoke the old key with the provider directly.
 
 ## Spec cross-reference
 
