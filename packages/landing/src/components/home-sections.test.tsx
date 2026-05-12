@@ -34,11 +34,11 @@ describe('home sections', () => {
         }
     });
 
-    it('PrivacyTeaser links to /privacy', () => {
+    it('PrivacyTeaser links to /privacy/', () => {
         render(<PrivacyTeaser />);
-        expect(screen.getByRole('link', { name: /read more/i })).toHaveAttribute(
+        expect(screen.getByRole('link', { name: /privacy story/i })).toHaveAttribute(
             'href',
-            '/privacy',
+            '/privacy/',
         );
     });
 
