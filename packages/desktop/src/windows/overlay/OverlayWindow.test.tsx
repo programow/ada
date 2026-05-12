@@ -78,6 +78,29 @@ describe('<OverlayWindow />', () => {
         expect(onStop).toHaveBeenCalledTimes(1);
     });
 
+    it('renders a Cancel button while recording', () => {
+        render(<OverlayWindow state={{ kind: 'recording' }} />);
+        expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+    });
+
+    it('does not render a Cancel button while transcribing', () => {
+        render(<OverlayWindow state={{ kind: 'transcribing' }} />);
+        expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
+    });
+
+    it('does not render a Cancel button while positioning', () => {
+        render(<OverlayWindow state={{ kind: 'positioning' }} />);
+        expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
+    });
+
+    it('invokes onCancel when the Cancel button is clicked', async () => {
+        const onCancel = vi.fn();
+        const user = userEvent.setup();
+        render(<OverlayWindow state={{ kind: 'recording' }} onCancel={onCancel} />);
+        await user.click(screen.getByRole('button', { name: /cancel/i }));
+        expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
     it('renders a waveform with all bars inactive when level defaults to 0', () => {
         render(<OverlayWindow state={{ kind: 'recording' }} />);
         for (const i of [0, 1, 2, 3]) {

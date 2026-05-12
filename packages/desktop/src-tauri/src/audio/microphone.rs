@@ -333,21 +333,39 @@ impl AudioSource for MicrophoneSource {
     }
 
     fn stop_capture(&self, session: &CaptureSession) -> Result<Vec<u8>, AudioError> {
-        let mut active = {
-            let mut sessions = self.sessions.lock().unwrap();
-            let pos = sessions
-                .iter()
-                .position(|s| s.id == session.id)
-                .ok_or_else(|| AudioError::CaptureFailed("session not found".into()))?;
-            sessions.remove(pos)
-        };
-        // Signal the worker to drop its `Stream` and exit.
+        let mut active = self.take_session(session.id)?;
         let _ = active.stop_tx.send(());
         if let Some(handle) = active.worker.take() {
             let _ = handle.join();
         }
         let samples = active.samples.lock().unwrap().clone();
         Ok(encode_wav_pcm16(&samples, active.sample_rate))
+    }
+
+    fn cancel_capture(&self, session: &CaptureSession) -> Result<(), AudioError> {
+        // Mirror `stop_capture` for the side-effect of shutting down the
+        // cpal worker — but never touch the samples buffer. The session is
+        // simply dropped, and so is the buffer along with it.
+        let mut active = self.take_session(session.id)?;
+        let _ = active.stop_tx.send(());
+        if let Some(handle) = active.worker.take() {
+            let _ = handle.join();
+        }
+        Ok(())
+    }
+}
+
+impl MicrophoneSource {
+    /// Remove the session matching `id` from the active list and return it.
+    /// Shared by `stop_capture` and `cancel_capture` so the lookup logic
+    /// can't drift between the two paths.
+    fn take_session(&self, id: Uuid) -> Result<ActiveSession, AudioError> {
+        let mut sessions = self.sessions.lock().unwrap();
+        let pos = sessions
+            .iter()
+            .position(|s| s.id == id)
+            .ok_or_else(|| AudioError::CaptureFailed("session not found".into()))?;
+        Ok(sessions.remove(pos))
     }
 }
 
@@ -413,6 +431,30 @@ mod tests {
     fn peak_level_for_unknown_session_returns_none() {
         let src = MicrophoneSource::new();
         assert!(src.peak_level_for(Uuid::new_v4()).is_none());
+    }
+
+    #[test]
+    fn cancel_capture_drops_session_without_producing_wav() {
+        // Use the test-only session insert so we don't need a real cpal
+        // stream. The trait method must remove the session and return Ok
+        // without going through the WAV encoder path.
+        let src = MicrophoneSource::new();
+        let id = Uuid::new_v4();
+        src.insert_test_session(id, 0.0);
+        assert!(src.peak_level_for(id).is_some(), "session should be present");
+        let session = CaptureSession { id };
+        AudioSource::cancel_capture(&src, &session).expect("cancel should succeed");
+        assert!(
+            src.peak_level_for(id).is_none(),
+            "session should be removed after cancel",
+        );
+    }
+
+    #[test]
+    fn cancel_capture_unknown_session_errors() {
+        let src = MicrophoneSource::new();
+        let session = CaptureSession { id: Uuid::new_v4() };
+        assert!(AudioSource::cancel_capture(&src, &session).is_err());
     }
 
     #[test]

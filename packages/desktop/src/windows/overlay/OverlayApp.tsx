@@ -6,6 +6,7 @@ import {
     OVERLAY_RESET_POSITION_EVENT,
     RECORDING_STATE_EVENT,
     exitOverlayPositionSetup,
+    requestRecordingCancel,
     requestRecordingToggle,
 } from '@/lib/overlay-bridge';
 import type { RecordingState } from '@/lib/recording-controller';
@@ -272,6 +273,7 @@ export function OverlayApp() {
         <OverlayWindow
             state={determineOverlayState(recordingState, setupActive)}
             onStop={() => void requestRecordingToggle()}
+            onCancel={() => void requestRecordingCancel()}
             level={level}
         />
     );

@@ -3,15 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { listenMock, fireEvent } = vi.hoisted(() => {
     type Handler = () => void;
-    let handler: Handler | null = null;
+    const handlers = new Map<string, Handler>();
     return {
-        listenMock: vi.fn(async (_name: string, h: Handler) => {
-            handler = h;
+        listenMock: vi.fn(async (name: string, h: Handler) => {
+            handlers.set(name, h);
             return () => {
-                handler = null;
+                handlers.delete(name);
             };
         }),
-        fireEvent: () => handler?.(),
+        // Default fires the toggle handler so existing tests that just call
+        // `fireEvent()` continue to drive the toggle path.
+        fireEvent: (eventName?: string) => {
+            const name = eventName ?? 'vox-era://shortcut-toggle';
+            handlers.get(name)?.();
+        },
     };
 });
 
@@ -19,6 +24,7 @@ vi.mock('@tauri-apps/api/event', () => ({
     listen: listenMock,
 }));
 
+import { EVT_SHORTCUT_CANCEL } from '@/lib/markers';
 import type { RecordingDeps, RecordingState } from '@/lib/recording-controller';
 import { SHORTCUT_EVENT, useHotkeyRecording } from './useHotkeyRecording';
 
@@ -27,6 +33,7 @@ function makeDeps(): RecordingDeps {
         vox: {
             startRecording: vi.fn(async () => 'session-1'),
             stopRecording: vi.fn(async () => [82, 73, 70, 70]),
+            cancelRecording: vi.fn(async () => undefined),
             pasteText: vi.fn(async () => undefined),
             checkMicrophonePermission: vi.fn(async () => 'Granted' as const),
             requestMicrophonePermission: vi.fn(async () => 'Granted' as const),
@@ -107,6 +114,41 @@ describe('useHotkeyRecording', () => {
             expect(kinds).toContain('transcribing');
             expect(kinds).toContain('idle');
         });
+    });
+
+    it('subscribes to the cancel event in addition to the toggle event', () => {
+        renderHook(() => useHotkeyRecording({ deps: makeDeps(), publish: makePublish() }));
+        const subscribedEvents = listenMock.mock.calls.map((c) => c[0]);
+        expect(subscribedEvents).toContain(SHORTCUT_EVENT);
+        expect(subscribedEvents).toContain(EVT_SHORTCUT_CANCEL);
+    });
+
+    it('cancel event aborts an in-progress recording and returns to idle', async () => {
+        const deps = makeDeps();
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
+        await act(async () => {
+            fireEvent();
+        });
+        await waitFor(() => expect(result.current.state.kind).toBe('recording'));
+
+        await act(async () => {
+            fireEvent(EVT_SHORTCUT_CANCEL);
+        });
+        await waitFor(() => expect(result.current.state.kind).toBe('idle'));
+        expect(deps.vox.cancelRecording).toHaveBeenCalledWith('session-1');
+        expect(deps.transcribe).not.toHaveBeenCalled();
+        expect(deps.vox.pasteText).not.toHaveBeenCalled();
+        expect(deps.vox.stopRecording).not.toHaveBeenCalled();
+    });
+
+    it('cancel event is a no-op when idle', async () => {
+        const deps = makeDeps();
+        const { result } = renderHook(() => useHotkeyRecording({ deps, publish: makePublish() }));
+        await act(async () => {
+            fireEvent(EVT_SHORTCUT_CANCEL);
+        });
+        expect(result.current.state.kind).toBe('idle');
+        expect(deps.vox.cancelRecording).not.toHaveBeenCalled();
     });
 
     it('ignores events fired during transcribing (no double-stop)', async () => {

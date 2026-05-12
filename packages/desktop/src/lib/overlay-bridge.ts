@@ -2,7 +2,7 @@ import { emit } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { currentMonitor } from '@tauri-apps/api/window';
 import { getOverlayEnabled, setOverlayPosition } from './db';
-import { EVT_SHORTCUT_TOGGLE } from './markers';
+import { EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE } from './markers';
 import type { RecordingState } from './recording-controller';
 
 export const RECORDING_STATE_EVENT = 'vox-era://recording-state';
@@ -171,5 +171,18 @@ export async function requestRecordingToggle(): Promise<void> {
         await emit(EVT_SHORTCUT_TOGGLE, null);
     } catch (e) {
         console.warn('overlay-bridge: requestRecordingToggle failed', e);
+    }
+}
+
+/**
+ * Cancel an in-progress recording. Emits the same event the cancel-hotkey
+ * fires (`EVT_SHORTCUT_CANCEL`) so a click on the overlay's X button takes
+ * the exact same code path as the global shortcut.
+ */
+export async function requestRecordingCancel(): Promise<void> {
+    try {
+        await emit(EVT_SHORTCUT_CANCEL, null);
+    } catch (e) {
+        console.warn('overlay-bridge: requestRecordingCancel failed', e);
     }
 }

@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
     clearOriginalFnUsageType,
+    getCancelHotkeyCombo,
     getHotkeyCombo,
     getOriginalFnUsageType,
     getSelectedMicDeviceId,
+    setCancelHotkeyCombo,
     setHotkeyCombo,
     setOriginalFnUsageType,
     setSelectedMicDeviceId,
@@ -28,16 +30,19 @@ function fnUsageLabel(value: number): string {
 
 export function SettingsRecording() {
     const hotkeyId = useId();
+    const cancelHotkeyId = useId();
     const deviceId = useId();
     const [devices, setDevices] = useState<AudioDeviceInfo[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<string>('');
     const [hotkey, setHotkey] = useState<string>('');
+    const [cancelHotkey, setCancelHotkey] = useState<string>('');
     const [testStatus, setTestStatus] = useState<'idle' | 'recording' | 'playing' | 'error'>(
         'idle',
     );
     const [testError, setTestError] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [hotkeyError, setHotkeyError] = useState<string | null>(null);
+    const [cancelHotkeyError, setCancelHotkeyError] = useState<string | null>(null);
     /**
      * When non-null, the user has clicked "Use Fn" but the macOS
      * `AppleFnUsageType` setting is something other than 0 ("Do Nothing"),
@@ -58,12 +63,14 @@ export function SettingsRecording() {
 
     useEffect(() => {
         void (async () => {
-            const [persistedDevice, persistedHotkey] = await Promise.all([
+            const [persistedDevice, persistedHotkey, persistedCancelHotkey] = await Promise.all([
                 getSelectedMicDeviceId(),
                 getHotkeyCombo(),
+                getCancelHotkeyCombo(),
             ]);
             setSelectedDevice(persistedDevice ?? '');
             setHotkey(persistedHotkey);
+            setCancelHotkey(persistedCancelHotkey);
             await refreshDevices();
         })();
     }, [refreshDevices]);
@@ -172,6 +179,37 @@ export function SettingsRecording() {
         }
     }
 
+    async function handleCancelHotkeyChange(combo: string) {
+        setCancelHotkey(combo);
+        await setCancelHotkeyCombo(combo);
+        try {
+            await vox.registerCancelHotkey(combo);
+            setCancelHotkeyError(null);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('register_cancel_hotkey failed', e);
+            setCancelHotkeyError(msg);
+        }
+    }
+
+    async function handleCancelHotkeyCaptureStart() {
+        // Free the OS shortcut so the webview can see the keydown the user
+        // is about to press. Symmetric with the toggle-hotkey path.
+        try {
+            await vox.unregisterCancelHotkey();
+        } catch (e) {
+            console.error('unregister_cancel_hotkey failed', e);
+        }
+    }
+
+    async function handleCancelHotkeyCaptureCancel() {
+        try {
+            await vox.registerCancelHotkey(cancelHotkey);
+        } catch (e) {
+            console.error('restore registerCancelHotkey failed', e);
+        }
+    }
+
     async function handleTestRecording() {
         setTestStatus('recording');
         setTestError(null);
@@ -238,6 +276,26 @@ export function SettingsRecording() {
                                 </Button>
                             </div>
                         </div>
+                    )}
+                </div>
+                <div className="flex flex-col gap-1">
+                    <Label htmlFor={cancelHotkeyId}>Cancel hotkey</Label>
+                    <div id={cancelHotkeyId}>
+                        <HotkeyInput
+                            value={cancelHotkey}
+                            onChange={(c) => void handleCancelHotkeyChange(c)}
+                            onCaptureStart={() => void handleCancelHotkeyCaptureStart()}
+                            onCaptureCancel={() => void handleCancelHotkeyCaptureCancel()}
+                            allowFn={false}
+                        />
+                    </div>
+                    {cancelHotkeyError && (
+                        <p
+                            data-testid="cancel-hotkey-error"
+                            className="text-xs font-bold uppercase tracking-widest text-red-700"
+                        >
+                            {cancelHotkeyError}
+                        </p>
                     )}
                 </div>
                 <div className="flex flex-col gap-1">

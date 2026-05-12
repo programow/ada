@@ -11,6 +11,13 @@ export interface OverlayWindowProps {
     state: OverlayState;
     onStop?: () => void;
     /**
+     * Fires when the user clicks the X button on the recording pill. The
+     * pill is hidden in other states, so this is only invoked while the
+     * overlay is in `recording`. Callers translate this into the cancel
+     * event (so a click takes the same path as the cancel hotkey).
+     */
+    onCancel?: () => void;
+    /**
      * Live microphone peak level in 0..1. Drives the height of the
      * waveform bars and a subtle scale on the recording dot. Defaults to
      * 0 so callers (and tests) that don't wire up the meter still get a
@@ -154,6 +161,36 @@ function StopButton({ onClick }: { onClick?: () => void }) {
     );
 }
 
+function CancelButton({ onClick }: { onClick?: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label="Cancel recording"
+            title="Cancel"
+            data-testid="overlay-cancel-button"
+            className={cn(
+                'flex h-5 w-5 items-center justify-center rounded-full',
+                'bg-white/15 text-white/85',
+                'hover:bg-white/25 hover:text-white active:bg-white/35',
+                'transition-colors',
+            )}
+        >
+            <svg
+                aria-hidden="true"
+                viewBox="0 0 10 10"
+                className="block h-2.5 w-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+            >
+                <path d="M2 2 L8 8 M8 2 L2 8" />
+            </svg>
+        </button>
+    );
+}
+
 function TranscribingDots() {
     return (
         <span className="pointer-events-none flex items-center gap-1" aria-hidden="true">
@@ -168,7 +205,7 @@ function TranscribingDots() {
     );
 }
 
-export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) {
+export function OverlayWindow({ state, onStop, onCancel, level = 0 }: OverlayWindowProps) {
     if (state.kind === 'hidden') return null;
 
     if (state.kind === 'recording') {
@@ -180,6 +217,7 @@ export function OverlayWindow({ state, onStop, level = 0 }: OverlayWindowProps) 
                 <span className="pointer-events-none text-[11px] font-medium tracking-wide">
                     Recording
                 </span>
+                <CancelButton onClick={onCancel} />
                 <StopButton onClick={onStop} />
             </div>
         );

@@ -15,6 +15,8 @@ vi.mock('@/lib/db', () => ({
     setSelectedMicDeviceId: vi.fn(async () => undefined),
     getHotkeyCombo: vi.fn(async () => 'Cmd+Shift+Space'),
     setHotkeyCombo: vi.fn(async () => undefined),
+    getCancelHotkeyCombo: vi.fn(async () => 'Cmd+Esc'),
+    setCancelHotkeyCombo: vi.fn(async () => undefined),
     getRetentionDays: vi.fn(async () => 365),
     setRetentionDays: vi.fn(async () => undefined),
     purgeOlderThan: vi.fn(async () => ({ softDeleted: 0, hardDeleted: 0 })),
@@ -35,6 +37,8 @@ vi.mock('@/lib/invoke', () => ({
         stopRecording: vi.fn(async () => []),
         registerHotkey: vi.fn(async () => 'Cmd+Shift+Space'),
         unregisterHotkey: vi.fn(async () => undefined),
+        registerCancelHotkey: vi.fn(async () => 'Cmd+Esc'),
+        unregisterCancelHotkey: vi.fn(async () => undefined),
         getPlatformInfo: vi.fn(async () => ({ os: 'macos', isWayland: false })),
     },
 }));
