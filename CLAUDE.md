@@ -1,22 +1,22 @@
 # CLAUDE.md
 
-AI dev workflow guide for Vox Era — a cross-platform speech-to-text desktop app, currently migrating from Electron (legacy) to Tauri.
+AI dev workflow guide for bluemacaw — a cross-platform speech-to-text desktop app, currently migrating from Electron (legacy) to Tauri.
 
-## What Vox Era is
+## What bluemacaw is
 
-**Vox Era** is the new Tauri-based version of what was originally **Ada** (a macOS-only Electron app). The migration is in flight on branch `execution` (branched from `tech-stack` at the start of Plan A; final PR `execution` → `main` lives at the end of Plan D). The legacy Electron app lives under `legacy/electron/` for reference and is removed at the end of Plan D.
+**bluemacaw** is the new Tauri-based version of what was originally **Ada** (a macOS-only Electron app). The migration is in flight on branch `execution` (branched from `tech-stack` at the start of Plan A; final PR `execution` → `main` lives at the end of Plan D). The legacy Electron app lives under `legacy/electron/` for reference and is removed at the end of Plan D.
 
-- **Display name:** Vox Era
-- **URL slug:** `vox-era`
-- **Identifier (no hyphens):** `voxera` (used for Cargo crate name and macOS bundle id `com.vhtechnology.voxera`)
-- **Domain:** `vox-era.com`
+- **Display name:** bluemacaw
+- **URL slug:** `bluemacaw`
+- **Identifier (no hyphens):** `bluemacaw` (used for Cargo crate name and macOS bundle id `com.vhtechnology.bluemacaw`)
+- **Domain:** `bluemacaw.com`
 - **GitHub repo:** `programow/vox-era`
 - **License:** Apache 2.0
 
 ## Monorepo layout
 
 ```
-vox-era/
+bluemacaw/
 ├── packages/
 │   ├── desktop/    # Tauri app: Rust backend + React webview
 │   ├── landing/    # Next.js static landing page
@@ -53,7 +53,7 @@ vox-era/
 
 ## Skills (when working on this repo)
 
-Vox Era references the [Anthropic superpowers skills](https://github.com/anthropics/superpowers) (already available in your environment) PLUS four project-local skills in `.claude/skills/` that document tooling specifics for this codebase. Project-local skills auto-activate when their description matches the task at hand.
+bluemacaw references the [Anthropic superpowers skills](https://github.com/anthropics/superpowers) (already available in your environment) PLUS four project-local skills in `.claude/skills/` that document tooling specifics for this codebase. Project-local skills auto-activate when their description matches the task at hand.
 
 **Superpowers (workflow process):**
 - `superpowers:brainstorming` — when starting a new feature

@@ -4,7 +4,7 @@ import { DEFAULT_HOTKEY_MAC, DEFAULT_HOTKEY_OTHER } from './defaults';
 import { getPlatform } from './use-platform';
 import type { Theme } from './use-theme';
 
-const DB_URL = 'sqlite:vox-era.db';
+const DB_URL = 'sqlite:bluemacaw.db';
 const ACTIVE_MODEL_CONFIG_KEY = 'active_model_config_id';
 const OVERLAY_ENABLED_KEY = 'overlay_enabled';
 const OVERLAY_X_KEY = 'overlay_x';
@@ -334,8 +334,8 @@ export async function setCancelHotkeyCombo(combo: string): Promise<void> {
 }
 
 /**
- * Returns the AppleFnUsageType value that was in place before Vox Era changed
- * it, or null if Vox Era has never modified the system setting. Used to
+ * Returns the AppleFnUsageType value that was in place before bluemacaw changed
+ * it, or null if bluemacaw has never modified the system setting. Used to
  * restore the user's original preference when they switch away from the Fn
  * hotkey.
  */

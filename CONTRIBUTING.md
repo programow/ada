@@ -1,6 +1,6 @@
-# Contributing to Vox Era
+# Contributing to bluemacaw
 
-Thanks for your interest. Vox Era is open source under Apache 2.0.
+Thanks for your interest. bluemacaw is open source under Apache 2.0.
 
 ## Branching & PRs
 

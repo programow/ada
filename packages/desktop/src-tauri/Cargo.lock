@@ -342,6 +342,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "bluemacaw"
+version = "0.0.0"
+dependencies = [
+ "block2 0.6.2",
+ "chrono",
+ "core-foundation 0.10.1",
+ "core-graphics 0.24.0",
+ "cpal",
+ "enigo",
+ "env_logger",
+ "hound",
+ "keyring",
+ "log",
+ "objc2 0.6.4",
+ "objc2-app-kit",
+ "objc2-av-foundation",
+ "objc2-foundation",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-sql",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "uuid",
+ "windows 0.58.0",
+ "wiremock",
+ "zeroize",
+]
+
+[[package]]
 name = "borsh"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5915,44 +5953,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "voxera"
-version = "0.0.0"
-dependencies = [
- "block2 0.6.2",
- "chrono",
- "core-foundation 0.10.1",
- "core-graphics 0.24.0",
- "cpal",
- "enigo",
- "env_logger",
- "hound",
- "keyring",
- "log",
- "objc2 0.6.4",
- "objc2-app-kit",
- "objc2-av-foundation",
- "objc2-foundation",
- "serde",
- "serde_json",
- "sqlx",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-sql",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-test",
- "uuid",
- "windows 0.58.0",
- "wiremock",
- "zeroize",
-]
 
 [[package]]
 name = "vswhom"

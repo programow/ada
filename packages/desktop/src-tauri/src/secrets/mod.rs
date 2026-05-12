@@ -4,7 +4,7 @@ pub mod keyring_vault;
 #[cfg(test)]
 pub mod mock;
 
-pub const SERVICE_NAME: &str = "vox-era";
+pub const SERVICE_NAME: &str = "bluemacaw";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SecretsError {

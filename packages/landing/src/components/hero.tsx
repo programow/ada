@@ -16,15 +16,15 @@ export function Hero() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src="/logo.svg"
-                        alt="Joe the bird"
+                        alt="bluemacaw"
                         className="mb-6 h-20 w-20 sm:h-24 sm:w-24"
                     />
                     <h1 className="max-w-3xl text-5xl font-black leading-[1.05] tracking-tight text-fg sm:text-6xl md:text-7xl">
                         Talk. Get text. Anywhere your cursor is.
                     </h1>
                     <p className="mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-                        Joe the bird is a cross-platform dictation app you actually own. Bring your
-                        own API key for any of 9 STT providers. Open source. No backend.
+                        bluemacaw is a cross-platform dictation app you actually own. Bring your own
+                        API key for any of 9 STT providers. Open source. No backend.
                     </p>
                     <div className="mt-10 flex flex-wrap justify-center gap-3">
                         <Button asChild size="xl">

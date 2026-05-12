@@ -99,7 +99,7 @@ export const vox = {
      */
     getPlatformInfo: () => invoke<PlatformInfo>('get_platform_info'),
     /**
-     * Restart the running Vox Era process. Used by the onboarding screen
+     * Restart the running bluemacaw process. Used by the onboarding screen
      * after the user grants Accessibility / Input Monitoring on macOS,
      * since TCC doesn't propagate authorisation changes into a running
      * process.

@@ -1,8 +1,8 @@
 {
-  "name": "@vox-era/infra",
+  "name": "@bluemacaw/infra",
   "private": true,
   "version": "0.0.0",
-  "description": "Vox Era infrastructure as code (Pulumi + AWS + Cloudflare) — implementation in Plan D",
+  "description": "bluemacaw infrastructure as code (Pulumi + AWS + Cloudflare) — implementation in Plan D",
   "scripts": {
     "typecheck": "echo 'infra typecheck — implemented in Plan D' && exit 0",
     "test": "echo 'infra test — no tests for IaC' && exit 0",

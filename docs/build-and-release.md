@@ -4,7 +4,7 @@
 
 Until then:
 
-- **Local clean build & install (macOS):** `/build-clean` slash command (defined in `.claude/commands/build-clean.md`). Runs `tauri build`, copies the bundle into `/Applications/Vox Era.app`, performs a TCC reset so a fresh permission flow can be exercised.
+- **Local clean build & install (macOS):** `/build-clean` slash command (defined in `.claude/commands/build-clean.md`). Runs `tauri build`, copies the bundle into `/Applications/bluemacaw.app`, performs a TCC reset so a fresh permission flow can be exercised.
 - **Dev loop:** `/dev-desktop` (Vite + cargo watch).
 - **CI release workflow:** `.github/workflows/release.yml`. Currently builds the macOS bundle on tag pushes; Linux and Windows targets are temporarily disabled (see commit `99c5b37`).
 

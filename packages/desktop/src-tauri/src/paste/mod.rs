@@ -25,7 +25,7 @@ const PBOARD_SETTLE_DELAY: Duration = Duration::from_millis(80);
 #[cfg(target_os = "linux")]
 fn wayland_fallback_error() -> String {
     format!(
-        "{} Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.",
+        "{} Wayland blocks synthetic keystrokes from third-party apps. bluemacaw copied the text to your clipboard — press Ctrl+V to paste it.",
         crate::markers::ERR_WAYLAND_PASTE_UNSUPPORTED
     )
 }

@@ -14,8 +14,8 @@ describe('Footer', () => {
         expect(screen.getByText(/1\.2\.3/)).toBeInTheDocument();
     });
 
-    it('shows the Joe the bird brand', () => {
+    it('shows the bluemacaw brand', () => {
         render(<Footer version="0.0.0" />);
-        expect(screen.getByText(/joe the bird/i)).toBeInTheDocument();
+        expect(screen.getByText(/bluemacaw/i)).toBeInTheDocument();
     });
 });

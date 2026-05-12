@@ -158,7 +158,7 @@ describe('recording-controller toggle', () => {
         it('surfaces a Wayland-specific friendly message when paste returns wayland-paste-unsupported', async () => {
             vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
                 new Error(
-                    `${ERR_WAYLAND_PASTE_UNSUPPORTED} Wayland blocks synthetic keystrokes from third-party apps. Vox Era copied the text to your clipboard — press Ctrl+V to paste it.`,
+                    `${ERR_WAYLAND_PASTE_UNSUPPORTED} Wayland blocks synthetic keystrokes from third-party apps. bluemacaw copied the text to your clipboard — press Ctrl+V to paste it.`,
                 ),
             );
             const { setState, states } = makeSetState();
@@ -177,7 +177,7 @@ describe('recording-controller toggle', () => {
         it('surfaces an Accessibility-specific friendly message when paste returns accessibility-required', async () => {
             vi.mocked(deps.vox.pasteText).mockRejectedValueOnce(
                 new Error(
-                    `${ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.`,
+                    `${ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant bluemacaw in System Settings → Privacy & Security → Accessibility, then try again.`,
                 ),
             );
             const { setState, states } = makeSetState();

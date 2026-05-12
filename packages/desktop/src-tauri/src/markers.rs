@@ -41,11 +41,11 @@ pub const ERR_INPUT_MONITORING_REQUIRED: &str = "input-monitoring-required:";
 /// tap) fires. The main-window hook listens to drive the recording state
 /// machine; the overlay window's Stop button re-emits the same event so a
 /// click toggles the same machine as the hotkey.
-pub const EVT_SHORTCUT_TOGGLE: &str = "vox-era://shortcut-toggle";
+pub const EVT_SHORTCUT_TOGGLE: &str = "bluemacaw://shortcut-toggle";
 
 /// Event Rust emits when the registered cancel global shortcut fires. The
 /// main-window hook listens to abort an in-progress recording: capture
 /// stops, the audio buffer is discarded, no STT request is made. The
 /// overlay's Cancel (X) button re-emits the same event so a click takes
 /// the same code path as the hotkey.
-pub const EVT_SHORTCUT_CANCEL: &str = "vox-era://shortcut-cancel";
+pub const EVT_SHORTCUT_CANCEL: &str = "bluemacaw://shortcut-cancel";

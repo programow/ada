@@ -34,12 +34,12 @@ const ROW_META: Record<PermissionKey, RowMeta> = {
     },
     accessibility: {
         title: 'Accessibility',
-        description: 'Lets Vox Era paste transcribed text into the focused app.',
+        description: 'Lets bluemacaw paste transcribed text into the focused app.',
         icon: 'AX',
     },
     'input-monitoring': {
         title: 'Input Monitoring',
-        description: 'Lets Vox Era listen for your Fn-key shortcut.',
+        description: 'Lets bluemacaw listen for your Fn-key shortcut.',
         icon: 'KEY',
     },
 };
@@ -101,7 +101,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     /**
      * Tracks which restart-required permissions have transitioned to
      * Granted *while this screen is mounted*. If non-empty, the user must
-     * restart Vox Era for the grant to apply to the running process.
+     * restart bluemacaw for the grant to apply to the running process.
      */
     const [needsRestart, setNeedsRestart] = useState(false);
     // Ref (not state) for previous status — we only need it to detect
@@ -195,11 +195,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             <div className="mx-auto flex max-w-2xl flex-col gap-6">
                 <header className="flex flex-col gap-2">
                     <h1 className="text-3xl font-extrabold uppercase tracking-tight">
-                        Welcome to Vox Era
+                        Welcome to bluemacaw
                     </h1>
                     <p className="text-sm font-medium normal-case">
-                        Vox Era needs a few permissions to work. We'll only ask for what's needed on
-                        your system.
+                        bluemacaw needs a few permissions to work. We'll only ask for what's needed
+                        on your system.
                     </p>
                 </header>
 
@@ -250,9 +250,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         className="border-3 border-border bg-yellow-100"
                     >
                         <CardContent className="text-xs font-medium normal-case">
-                            You're on Wayland. Vox Era will copy transcribed text to your clipboard
-                            automatically — press Ctrl+V to paste, since Wayland blocks synthetic
-                            keystrokes.
+                            You're on Wayland. bluemacaw will copy transcribed text to your
+                            clipboard automatically — press Ctrl+V to paste, since Wayland blocks
+                            synthetic keystrokes.
                         </CardContent>
                     </Card>
                 )}
@@ -264,7 +264,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     >
                         <CardContent className="flex flex-row items-center justify-between gap-3 text-xs font-medium normal-case">
                             <p>
-                                You just granted a permission. Quit and reopen Vox Era for it to
+                                You just granted a permission. Quit and reopen bluemacaw for it to
                                 take effect.
                             </p>
                             <Button

@@ -13,7 +13,7 @@ export function PrivacyTeaser() {
                 <p className="relative mt-4 max-w-2xl text-base text-fg/80 sm:text-lg">
                     Your API keys go straight into your OS&apos;s native credential store — Keychain
                     on macOS, Credential Manager on Windows, Secret Service on Linux. They never
-                    touch a Joe the bird server because there isn&apos;t one.
+                    touch a bluemacaw server because there isn&apos;t one.
                 </p>
                 <a
                     href="/privacy/"

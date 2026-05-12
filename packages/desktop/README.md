@@ -1,6 +1,6 @@
-# `@vox-era/desktop`
+# `@bluemacaw/desktop`
 
-The Vox Era desktop app: Tauri 2 (Rust core) + React 18 + Vite + TypeScript (webview).
+The bluemacaw desktop app: Tauri 2 (Rust core) + React 18 + Vite + TypeScript (webview).
 
 This package is one of the workspaces under `/packages/`; the monorepo also has `landing` (Plan C) and `infra` (Plan D). For repo-wide context, start at the [root README](../../README.md) and the [docs index](../../docs/README.md).
 
@@ -102,7 +102,7 @@ Capability grants for each are listed in `src-tauri/capabilities/default.json`.
 
 ## Configuration
 
-- `tauri.conf.json` — bundle id (`com.vhtechnology.voxera`), windows config (main + overlay), CSP allowlist (provider hostnames), bundle metadata, updater endpoint placeholder.
+- `tauri.conf.json` — bundle id (`com.vhtechnology.bluemacaw`), windows config (main + overlay), CSP allowlist (provider hostnames), bundle metadata, updater endpoint placeholder.
 - `Cargo.toml` — Rust dependencies: `tauri`, `cpal`, `keyring`, `sqlx`, `enigo`, `objc2-av-foundation` on macOS, `windows` on Windows.
 - `package.json` — `@ai-sdk/*` for each provider, `@tauri-apps/plugin-*` for each tracked plugin.
 

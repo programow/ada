@@ -3,7 +3,7 @@
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
-pub const DB_URL: &str = "sqlite:vox-era.db";
+pub const DB_URL: &str = "sqlite:bluemacaw.db";
 
 pub fn migrations() -> Vec<Migration> {
     vec![

@@ -1,6 +1,6 @@
-# Vox Era Documentation
+# bluemacaw Documentation
 
-Long-form docs for Vox Era. Most of these are written across Plans B and D as the relevant subsystems land.
+Long-form docs for bluemacaw. Most of these are written across Plans B and D as the relevant subsystems land.
 
 ## Architecture & internals
 

@@ -27,7 +27,7 @@ export function formatRowAsMd(row: TranscriptionRow): string {
 }
 
 export function formatBulkAsMd(rows: readonly TranscriptionRow[], rangeLabel: string): string {
-    const header = `# Vox Era — Transcription Export · ${rangeLabel}\n\n`;
+    const header = `# bluemacaw — Transcription Export · ${rangeLabel}\n\n`;
     const body = rows
         .map((row) =>
             [

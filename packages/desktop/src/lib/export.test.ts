@@ -31,7 +31,7 @@ describe('export.formatRowAsMd', () => {
 describe('export.formatBulkAsMd', () => {
     it('renders an H1 followed by H2 sections per row', () => {
         const md = formatBulkAsMd([row, { ...row, id: 2, text: 'Two.' }], 'all');
-        expect(md.startsWith('# Vox Era')).toBe(true);
+        expect(md.startsWith('# bluemacaw')).toBe(true);
         expect((md.match(/^## Transcription/gm) ?? []).length).toBe(2);
         expect(md).toContain('Hello world.');
         expect(md).toContain('Two.');

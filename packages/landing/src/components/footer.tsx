@@ -10,7 +10,7 @@ export function Footer({ version }: FooterProps) {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-7" />
                     <div className="text-sm text-muted-foreground">
-                        <span className="font-bold text-fg">Joe the bird</span>
+                        <span className="font-bold text-fg">bluemacaw</span>
                         <span className="mx-2 opacity-60">·</span>
                         Apache 2.0
                         <span className="mx-2 opacity-60">·</span>v{version}

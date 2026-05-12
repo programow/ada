@@ -116,7 +116,7 @@ impl AudioSource for MicrophoneSource {
 
         let device_id_owned: Option<String> = device_id.map(str::to_string);
         let worker = thread::Builder::new()
-            .name(format!("voxera-mic-{id}"))
+            .name(format!("bluemacaw-mic-{id}"))
             .spawn(move || {
                 let host = cpal::default_host();
                 let device = match device_id_owned.as_deref() {

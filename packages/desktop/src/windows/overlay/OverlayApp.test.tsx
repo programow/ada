@@ -70,10 +70,10 @@ vi.mock('@/lib/db', () => ({
     setOverlayPosition: setOverlayPositionMock,
 }));
 vi.mock('@/lib/overlay-bridge', () => ({
-    RECORDING_STATE_EVENT: 'vox-era://recording-state',
-    OVERLAY_POSITION_SETUP_ON_EVENT: 'vox-era://overlay-position-setup-on',
-    OVERLAY_POSITION_SETUP_OFF_EVENT: 'vox-era://overlay-position-setup-off',
-    OVERLAY_RESET_POSITION_EVENT: 'vox-era://overlay-reset-position',
+    RECORDING_STATE_EVENT: 'bluemacaw://recording-state',
+    OVERLAY_POSITION_SETUP_ON_EVENT: 'bluemacaw://overlay-position-setup-on',
+    OVERLAY_POSITION_SETUP_OFF_EVENT: 'bluemacaw://overlay-position-setup-off',
+    OVERLAY_RESET_POSITION_EVENT: 'bluemacaw://overlay-reset-position',
     exitOverlayPositionSetup: exitOverlayPositionSetupMock,
 }));
 vi.mock('@/lib/invoke', () => ({
@@ -82,10 +82,10 @@ vi.mock('@/lib/invoke', () => ({
 
 import { OverlayApp } from './OverlayApp';
 
-const RECORDING_EVENT = 'vox-era://recording-state';
-const SETUP_ON_EVENT = 'vox-era://overlay-position-setup-on';
-const SETUP_OFF_EVENT = 'vox-era://overlay-position-setup-off';
-const RESET_EVENT = 'vox-era://overlay-reset-position';
+const RECORDING_EVENT = 'bluemacaw://recording-state';
+const SETUP_ON_EVENT = 'bluemacaw://overlay-position-setup-on';
+const SETUP_OFF_EVENT = 'bluemacaw://overlay-position-setup-off';
+const RESET_EVENT = 'bluemacaw://overlay-reset-position';
 
 beforeEach(() => {
     listenMock.mockClear();

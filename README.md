@@ -1,4 +1,4 @@
-# Vox Era
+# bluemacaw
 
 Cross-platform speech-to-text desktop app. Press a global shortcut, dictate, get text pasted wherever your cursor is. Bring your own API key for any of 9 STT providers (OpenAI, Groq, Deepgram, AssemblyAI, ElevenLabs, Fal, Gladia, Azure OpenAI, Rev.ai).
 
@@ -8,13 +8,13 @@ Cross-platform speech-to-text desktop app. Press a global shortcut, dictate, get
 
 *Available once the first signed release ships (Plan D).* For now, see `docs/build-and-release.md` for local build instructions.
 
-- **macOS:** [Download DMG](https://vox-era.com) (signed + notarized)
-- **Windows:** [Download installer](https://vox-era.com) (unsigned at v1; SmartScreen warning expected)
+- **macOS:** [Download DMG](https://bluemacaw.com) (signed + notarized)
+- **Windows:** [Download installer](https://bluemacaw.com) (unsigned at v1; SmartScreen warning expected)
 - **Linux:** AppImage, deb, or rpm — see `docs/install-linux.md`
 
-## Why Vox Era
+## Why bluemacaw
 
-- **Bring your own key.** Your API keys live in your OS keychain. Audio goes only to the provider you chose. No Vox Era backend.
+- **Bring your own key.** Your API keys live in your OS keychain. Audio goes only to the provider you chose. No bluemacaw backend.
 - **Multi-provider.** Pick the model that fits: OpenAI Whisper, Groq's distil-whisper, Deepgram Nova, AssemblyAI, ElevenLabs Scribe, and more.
 - **Cross-platform.** macOS, Windows, Linux. Same shortcut. Same UX.
 - **Open source (Apache 2.0).** Read the code. Verify the privacy story.
@@ -22,7 +22,7 @@ Cross-platform speech-to-text desktop app. Press a global shortcut, dictate, get
 ## Project layout
 
 ```
-vox-era/
+bluemacaw/
 ├── packages/
 │   ├── desktop/      # Tauri app — see Plan B
 │   └── landing/      # Next.js landing page — see Plan C

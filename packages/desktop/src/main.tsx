@@ -6,7 +6,7 @@ import App from './App';
 // The overlay window is rendered into a transparent macOS native window.
 // We must clear html, body, AND the React root container's background
 // colours that globals.css applies for the main window — otherwise the
-// overlay's bg-bg (dark navy in dark mode, cream in light) shows through
+// overlay's bg-bg (dark navy in dark mode, white in light) shows through
 // as a solid rectangle around the floating pill.
 const params = new URLSearchParams(window.location.search);
 const isOverlay = params.get('window') === 'overlay';

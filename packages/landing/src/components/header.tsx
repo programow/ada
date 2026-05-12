@@ -15,7 +15,7 @@ export function Header() {
                 <Link
                     href="/"
                     className="group flex items-center gap-2.5"
-                    aria-label="Joe the bird — home"
+                    aria-label="bluemacaw — home"
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -24,7 +24,7 @@ export function Header() {
                         aria-hidden="true"
                         className="h-8 w-8 transition-transform group-hover:rotate-[-6deg]"
                     />
-                    <span className="text-base font-bold tracking-tight text-fg">Joe the bird</span>
+                    <span className="text-base font-bold tracking-tight text-fg">bluemacaw</span>
                 </Link>
 
                 <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

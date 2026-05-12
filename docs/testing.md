@@ -1,6 +1,6 @@
 # Testing
 
-Vox Era's test pyramid has **four layers**, each with a clear contract about what it can and can't observe. This is per spec §9; the implementations live under `packages/desktop/`.
+bluemacaw's test pyramid has **four layers**, each with a clear contract about what it can and can't observe. This is per spec §9; the implementations live under `packages/desktop/`.
 
 ## The four layers
 

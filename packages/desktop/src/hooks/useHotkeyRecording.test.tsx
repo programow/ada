@@ -14,7 +14,7 @@ const { listenMock, fireEvent } = vi.hoisted(() => {
         // Default fires the toggle handler so existing tests that just call
         // `fireEvent()` continue to drive the toggle path.
         fireEvent: (eventName?: string) => {
-            const name = eventName ?? 'vox-era://shortcut-toggle';
+            const name = eventName ?? 'bluemacaw://shortcut-toggle';
             handlers.get(name)?.();
         },
     };

@@ -69,7 +69,7 @@ describe('Rust↔TS marker contract', () => {
         }
     });
 
-    test('marker values end with a colon (error prefixes) or use the vox-era:// scheme (events)', () => {
+    test('marker values end with a colon (error prefixes) or use the bluemacaw:// scheme (events)', () => {
         // The `.includes(MARKER)` calls on the JS side depend on the colon
         // suffix to disambiguate `accessibility-required:` from a hypothetical
         // `accessibility-required-extended` marker. Pin the convention here.
@@ -78,8 +78,8 @@ describe('Rust↔TS marker contract', () => {
                 expect(value.endsWith(':'), `${name} should end with ':'`).toBe(true);
             } else if (name.startsWith('EVT_')) {
                 expect(
-                    value.startsWith('vox-era://'),
-                    `${name} should use the vox-era:// event scheme`,
+                    value.startsWith('bluemacaw://'),
+                    `${name} should use the bluemacaw:// event scheme`,
                 ).toBe(true);
             }
         }

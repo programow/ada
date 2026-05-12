@@ -13,7 +13,7 @@
       },
     },
     "packages/desktop": {
-      "name": "@vox-era/desktop",
+      "name": "@bluemacaw/desktop",
       "version": "0.0.0",
       "dependencies": {
         "@ai-sdk/assemblyai": "^2.0.33",
@@ -65,11 +65,11 @@
       },
     },
     "packages/infra": {
-      "name": "@vox-era/infra",
+      "name": "@bluemacaw/infra",
       "version": "0.0.0",
     },
     "packages/landing": {
-      "name": "@vox-era/landing",
+      "name": "@bluemacaw/landing",
       "version": "0.0.0",
       "dependencies": {
         "@fontsource-variable/nunito": "^5.2.7",
@@ -190,6 +190,12 @@
     "@biomejs/cli-win32-arm64": ["@biomejs/cli-win32-arm64@1.9.4", "", { "os": "win32", "cpu": "arm64" }, "sha512-tlbhLk+WXZmgwoIKwHIHEBZUwxml7bRJgk0X2sPyNR3S93cdRq6XulAZRQJ17FYGGzWne0fgrXBKpl7l4M87Hg=="],
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@1.9.4", "", { "os": "win32", "cpu": "x64" }, "sha512-8Y5wMhVIPaWe6jw2H+KlEm4wP/f7EW3810ZLmDlrEEy5KvBsb9ECEfu/kMWD484ijfQ8+nIi0giMgu9g1UAuuA=="],
+
+    "@bluemacaw/desktop": ["@bluemacaw/desktop@workspace:packages/desktop"],
+
+    "@bluemacaw/infra": ["@bluemacaw/infra@workspace:packages/infra"],
+
+    "@bluemacaw/landing": ["@bluemacaw/landing@workspace:packages/landing"],
 
     "@commitlint/cli": ["@commitlint/cli@19.8.1", "", { "dependencies": { "@commitlint/format": "^19.8.1", "@commitlint/lint": "^19.8.1", "@commitlint/load": "^19.8.1", "@commitlint/read": "^19.8.1", "@commitlint/types": "^19.8.1", "tinyexec": "^1.0.0", "yargs": "^17.0.0" }, "bin": { "commitlint": "./cli.js" } }, "sha512-LXUdNIkspyxrlV6VDHWBmCZRtkEVRpBKxi2Gtw3J54cGWhLCTouVD/Q6ZSaSvd2YaDObWK8mDjrz3TIKtaQMAA=="],
 
@@ -586,12 +592,6 @@
     "@vitest/spy": ["@vitest/spy@2.1.9", "", { "dependencies": { "tinyspy": "^3.0.2" } }, "sha512-E1B35FwzXXTs9FHNK6bDszs7mtydNi5MIfUWpceJ8Xbfb1gBMscAnwLbEu+B44ed6W3XjL9/ehLPHR1fkf1KLQ=="],
 
     "@vitest/utils": ["@vitest/utils@2.1.9", "", { "dependencies": { "@vitest/pretty-format": "2.1.9", "loupe": "^3.1.2", "tinyrainbow": "^1.2.0" } }, "sha512-v0psaMSkNJ3A2NMrUEHFRzJtDPFn+/VWZ5WxImB21T9fjucJRmS7xCS3ppEnARb9y11OAzaD+P2Ps+b+BGX5iQ=="],
-
-    "@vox-era/desktop": ["@vox-era/desktop@workspace:packages/desktop"],
-
-    "@vox-era/infra": ["@vox-era/infra@workspace:packages/infra"],
-
-    "@vox-era/landing": ["@vox-era/landing@workspace:packages/landing"],
 
     "@zeit/schemas": ["@zeit/schemas@2.36.0", "", {}, "sha512-7kjMwcChYEzMKjeex9ZFXkt1AyNov9R5HZtjBKVsmVpw7pa7ZtlCGvCBC2vnnXctaYN+aRI61HjIqeetZW5ROg=="],
 

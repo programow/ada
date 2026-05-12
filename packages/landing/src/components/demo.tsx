@@ -7,7 +7,7 @@ export function Demo() {
                 <div className="overflow-hidden rounded-2xl">
                     <Image
                         src="/demo.gif"
-                        alt="Joe the bird recording demo: shortcut press, dictation, paste"
+                        alt="bluemacaw recording demo: shortcut press, dictation, paste"
                         width={1200}
                         height={675}
                         unoptimized

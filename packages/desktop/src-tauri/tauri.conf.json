@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Vox Era",
+  "productName": "bluemacaw",
   "version": "0.0.0",
-  "identifier": "com.vhtechnology.voxera",
+  "identifier": "com.vhtechnology.bluemacaw",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Vox Era",
+        "title": "bluemacaw",
         "width": 900,
         "height": 680,
         "minWidth": 720,
@@ -25,7 +25,7 @@
       },
       {
         "label": "overlay",
-        "title": "Vox Era Overlay",
+        "title": "bluemacaw Overlay",
         "width": 280,
         "height": 64,
         "resizable": false,
@@ -47,7 +47,7 @@
     "icon": ["icons/icon.png"],
     "category": "Productivity",
     "shortDescription": "Cross-platform speech-to-text",
-    "longDescription": "Vox Era — multi-provider speech-to-text desktop app with BYOK and OS-keychain-stored credentials.",
+    "longDescription": "bluemacaw — multi-provider speech-to-text desktop app with BYOK and OS-keychain-stored credentials.",
     "macOS": {
       "entitlements": "entitlements.plist",
       "infoPlist": "Info.plist"
@@ -59,7 +59,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://vox-era.com/updates/latest.json"],
+      "endpoints": ["https://bluemacaw.com/updates/latest.json"],
       "pubkey": "REPLACE_WITH_MINISIGN_PUBKEY_FROM_PLAN_D"
     }
   }

@@ -1,6 +1,6 @@
 # Architecture
 
-Vox Era is a cross-platform desktop app built on **Tauri 2** (Rust + WebView). A global keyboard shortcut toggles recording; the captured audio is sent to one of nine pluggable STT providers via the Vercel AI SDK; the transcribed text is copied to the clipboard and pasted into the focused application via a synthetic `Cmd+V` (or `Ctrl+V`) keystroke.
+bluemacaw is a cross-platform desktop app built on **Tauri 2** (Rust + WebView). A global keyboard shortcut toggles recording; the captured audio is sent to one of nine pluggable STT providers via the Vercel AI SDK; the transcribed text is copied to the clipboard and pasted into the focused application via a synthetic `Cmd+V` (or `Ctrl+V`) keystroke.
 
 This document describes the *as-built* architecture. The original plan is `docs/superpowers/plans/2026-05-03-plan-b-desktop-app.md`, extended mid-flight by `docs/superpowers/plans/2026-05-10-recording-settings-and-history.md`. Where the as-built diverges from those plans, this doc is the source of truth.
 
@@ -20,18 +20,18 @@ There is no Node runtime in the renderer. There is no preload script. Tauri's ca
 | File | Role |
 |---|---|
 | `lib.rs` | Crate entry. Wires plugins (clipboard-manager, global-shortcut, sql, store, updater), constructs `AppState`, registers the `invoke_handler!`, builds the tray, converts the overlay window to a non-activating `NSPanel` on macOS, and installs the close-to-tray window handler. |
-| `main.rs` | Thin binary entry that calls `voxera_lib::run()`. |
+| `main.rs` | Thin binary entry that calls `bluemacaw_lib::run()`. |
 | `commands.rs` | Every `#[tauri::command]`. Defines `AppState` and `HostOs` / `PlatformInfo`. |
-| `markers.rs` | String constants for Tauri events (`vox-era://shortcut-toggle`, `vox-era://shortcut-cancel`) and error markers (`accessibility-required:`, `mic-denied:`, `wayland-paste-unsupported:`, `input-monitoring-required:`). Mirrored in `src/lib/markers.ts`; a contract test parses this file to enforce agreement. |
+| `markers.rs` | String constants for Tauri events (`bluemacaw://shortcut-toggle`, `bluemacaw://shortcut-cancel`) and error markers (`accessibility-required:`, `mic-denied:`, `wayland-paste-unsupported:`, `input-monitoring-required:`). Mirrored in `src/lib/markers.ts`; a contract test parses this file to enforce agreement. |
 | `platform/mod.rs` | `is_wayland_session()` helper (`XDG_SESSION_TYPE` / `WAYLAND_DISPLAY` probe). |
 | `audio/mod.rs` | `AudioSource` trait, `PermissionState`, `AudioError`, `AudioDeviceInfo`, `CaptureSession`. |
 | `audio/microphone.rs` | `MicrophoneSource` — the cpal-backed production impl. Owns session bookkeeping and peak-level metering. |
 | `audio/permissions/mod.rs` | `SettingsPanel` enum + per-OS dispatch. |
 | `audio/permissions/{macos,windows,linux}.rs` | Per-platform mic, accessibility, and input-monitoring permission flows. macOS calls `AVCaptureDevice.requestAccess` via `objc2-av-foundation`. |
-| `secrets/mod.rs` | `Vault` trait (3 methods: `get` / `set` / `delete`), `SecretKey` newtype with redacted `Debug`, `SecretsError`, `SERVICE_NAME = "vox-era"`. |
+| `secrets/mod.rs` | `Vault` trait (3 methods: `get` / `set` / `delete`), `SecretKey` newtype with redacted `Debug`, `SecretsError`, `SERVICE_NAME = "bluemacaw"`. |
 | `secrets/keyring_vault.rs` | Production impl over the `keyring` crate (Apple Keychain / Windows Credential Manager / libsecret). |
 | `secrets/mock.rs` | `InMemoryVault` for tests. |
-| `history/mod.rs` | Migration registration only. `DB_URL = "sqlite:vox-era.db"`; `migrations()` returns the two `Migration`s (transcriptions table; api_keys + model_configs + app_state tables). All data access happens JS-side via `src/lib/db.ts`. |
+| `history/mod.rs` | Migration registration only. `DB_URL = "sqlite:bluemacaw.db"`; `migrations()` returns the two `Migration`s (transcriptions table; api_keys + model_configs + app_state tables). All data access happens JS-side via `src/lib/db.ts`. |
 | `shortcut/mod.rs` | `HotkeyCombo` enum (`Fn` macOS-only / `Standard { combo }`), `ShortcutError`. |
 | `shortcut/parse.rs` | `parse_combo` / `format_combo` for the `"Cmd+Shift+Space"` style strings used by the settings UI. |
 | `shortcut/macos_fn.rs` | macOS `CGEventTap`-based Fn-key listener. |
@@ -105,8 +105,8 @@ Every webview-callable Rust function lives in `commands.rs` and is mirrored on `
 
 Rust emits two events the webview listens for via `@tauri-apps/api/event`:
 
-- `vox-era://shortcut-toggle` — toggle hotkey was pressed; `overlay-bridge.ts` drives the controller.
-- `vox-era://shortcut-cancel` — cancel hotkey was pressed; controller transitions back to idle.
+- `bluemacaw://shortcut-toggle` — toggle hotkey was pressed; `overlay-bridge.ts` drives the controller.
+- `bluemacaw://shortcut-cancel` — cancel hotkey was pressed; controller transitions back to idle.
 
 Both names are defined in `markers.rs` / `markers.ts` and pinned by a contract test that parses the Rust file as text.
 
@@ -124,13 +124,13 @@ sequenceDiagram
     participant Focused as Focused App
 
     User->>Shortcut: Press configured hotkey
-    Shortcut->>Overlay: emit "vox-era://shortcut-toggle"
+    Shortcut->>Overlay: emit "bluemacaw://shortcut-toggle"
     Overlay->>Cmd: invoke("check_microphone_permission")
     Overlay->>Cmd: invoke("start_recording", { deviceId })
     Cmd->>Audio: start_capture_with_device(...)
     Cmd-->>Overlay: sessionId
     User->>Shortcut: Press hotkey again
-    Shortcut->>Overlay: emit "vox-era://shortcut-toggle"
+    Shortcut->>Overlay: emit "bluemacaw://shortcut-toggle"
     Overlay->>Cmd: invoke("stop_recording", { sessionId })
     Cmd->>Audio: stop_capture(&session) → Vec<u8> (WAV)
     Cmd-->>Overlay: number[]
@@ -155,7 +155,7 @@ The original Plan B specified a few subsystems that ended up shaped differently 
 - **Vault key naming** — planned as `provider_id` strings; shipped using opaque `api_keys.id` UUIDs so a user can store multiple keys per provider ("Personal" / "Work" etc.) and pin each model config to a specific key.
 - **Three TCC buckets on macOS, not two** — Plan B treated Accessibility as the umbrella for both `CGEventPost` (paste) and `CGEventTap` (Fn-key); the actual TCC behaviour separates these into Accessibility (paste) and Input Monitoring (Fn-key tap). The Rust side exposes `check_input_monitoring_permission` / `request_input_monitoring_permission` as distinct commands and `Info.plist` carries `NSInputMonitoringUsageDescription`.
 - **Cancel hotkey** — added as a separate global shortcut (default `Cmd+Esc`) so users can abort a recording without producing audio. Independent of the toggle hotkey; both registrations coexist.
-- **Onboarding flow** — a first-launch permission walkthrough lives in `OnboardingScreen.tsx` + `use-onboarding-gate.ts`. Completion is tracked in `tauri-plugin-store` (`vox-era-onboarding.bin`).
+- **Onboarding flow** — a first-launch permission walkthrough lives in `OnboardingScreen.tsx` + `use-onboarding-gate.ts`. Completion is tracked in `tauri-plugin-store` (`bluemacaw-onboarding.bin`).
 - **Multiple API keys per provider** — the `api_keys` + `model_configs` SQL schema is the as-built; the original plan stored one key per provider.
 
 ## Spec cross-references

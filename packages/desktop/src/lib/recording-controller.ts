@@ -56,7 +56,7 @@ async function ensureMicPermission(
     if (state === 'Denied') {
         return {
             ok: false,
-            reason: `${ERR_MIC_DENIED} Microphone access is blocked. Open System Settings → Privacy & Security → Microphone and enable Vox Era.`,
+            reason: `${ERR_MIC_DENIED} Microphone access is blocked. Open System Settings → Privacy & Security → Microphone and enable bluemacaw.`,
         };
     }
     // NotDetermined — trigger the OS prompt now (via AVCaptureDevice.requestAccess
@@ -144,7 +144,7 @@ async function stopAndTranscribe(
             let friendly: string;
             if (pasteFailed.includes(ERR_ACCESSIBILITY_REQUIRED)) {
                 friendly =
-                    "Couldn't paste — Vox Era needs Accessibility permission. Text is on your clipboard; press Cmd+V to paste manually. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again.";
+                    "Couldn't paste — bluemacaw needs Accessibility permission. Text is on your clipboard; press Cmd+V to paste manually. Grant bluemacaw in System Settings → Privacy & Security → Accessibility, then try again.";
             } else if (pasteFailed.includes(ERR_WAYLAND_PASTE_UNSUPPORTED)) {
                 friendly =
                     "Couldn't paste — Wayland blocks synthetic keystrokes. Text is on your clipboard; press Ctrl+V to paste it.";

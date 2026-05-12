@@ -1,6 +1,6 @@
 # Secrets
 
-Vox Era is **bring-your-own-key** (BYOK). Each user supplies their own API key per provider; nothing is sent to a Vox Era backend. Keys are stored in the host OS's native credential manager via the [`keyring`](https://crates.io/crates/keyring) crate.
+bluemacaw is **bring-your-own-key** (BYOK). Each user supplies their own API key per provider; nothing is sent to a bluemacaw backend. Keys are stored in the host OS's native credential manager via the [`keyring`](https://crates.io/crates/keyring) crate.
 
 ## Storage backend per platform
 
@@ -10,7 +10,7 @@ Vox Era is **bring-your-own-key** (BYOK). Each user supplies their own API key p
 | Windows | Windows Credential Manager | `windows-native` feature. One target per `secret_id`. |
 | Linux | Secret Service / libsecret | `sync-secret-service` feature. Requires a running secret-service daemon (gnome-keyring, KWallet, etc.). The user must have unlocked their login keyring. |
 
-The service name used across all platforms is `vox-era` (`secrets::SERVICE_NAME` in `secrets/mod.rs`). The account name is an opaque `secret_id` — in practice, the `api_keys.id` UUID stored in the SQLite db (`migrations/0002_provider_configs.sql`). Storing by UUID rather than by provider id is what lets a user keep multiple keys per provider ("Personal" / "Work") and pin each model config to a specific key. Which keys exist for which provider is read from the `api_keys` table, not from the keychain itself.
+The service name used across all platforms is `bluemacaw` (`secrets::SERVICE_NAME` in `secrets/mod.rs`). The account name is an opaque `secret_id` — in practice, the `api_keys.id` UUID stored in the SQLite db (`migrations/0002_provider_configs.sql`). Storing by UUID rather than by provider id is what lets a user keep multiple keys per provider ("Personal" / "Work") and pin each model config to a specific key. Which keys exist for which provider is read from the `api_keys` table, not from the keychain itself.
 
 ## Code surface
 
