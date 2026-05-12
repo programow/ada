@@ -1,0 +1,71 @@
+import {
+    getCancelHotkeyCombo,
+    getHistoryLastSweep,
+    getHotkeyCombo,
+    getRetentionDays,
+    purgeOlderThan,
+    setHistoryLastSweep,
+} from '@/lib/db';
+import { vox } from '@/lib/invoke';
+import { useEffect } from 'react';
+import { MainWindow } from './windows/main/MainWindow';
+import { OverlayApp } from './windows/overlay/OverlayApp';
+
+export default function App() {
+    const params = new URLSearchParams(window.location.search);
+    const which = params.get('window') ?? 'main';
+    const isMain = which !== 'overlay';
+
+    useEffect(() => {
+        if (!isMain) return;
+        void (async () => {
+            try {
+                const combo = await getHotkeyCombo();
+                await vox.registerHotkey(combo);
+            } catch (e) {
+                console.error('initial registerHotkey failed', e);
+            }
+        })();
+        void (async () => {
+            try {
+                const cancelCombo = await getCancelHotkeyCombo();
+                await vox.registerCancelHotkey(cancelCombo);
+            } catch (e) {
+                // Cancel-hotkey registration must never block recording. Log
+                // and continue — the overlay's Cancel button still works.
+                console.error('initial registerCancelHotkey failed', e);
+            }
+        })();
+    }, [isMain]);
+
+    useEffect(() => {
+        if (!isMain) return;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let cancelled = false;
+
+        async function runSweep() {
+            const days = await getRetentionDays();
+            const last = await getHistoryLastSweep();
+            const now = Date.now();
+            const dayMs = 24 * 60 * 60 * 1000;
+            if (last == null || now - last >= dayMs) {
+                await purgeOlderThan(days);
+                await setHistoryLastSweep(now);
+            }
+            if (cancelled) return;
+            const nextDelay = Math.max(60_000, dayMs - (now - (last ?? now)));
+            timer = setTimeout(() => void runSweep(), nextDelay);
+        }
+
+        void runSweep();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [isMain]);
+
+    if (!isMain) {
+        return <OverlayApp />;
+    }
+    return <MainWindow />;
+}

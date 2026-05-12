@@ -1,0 +1,87 @@
+name: PR Preview — Landing
+
+on:
+  pull_request:
+    paths:
+      - 'packages/landing/**'
+      - '.github/workflows/pr-preview.yml'
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Build & deploy preview
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build landing
+        run: bun --cwd packages/landing run build
+
+      # Deploy step is a no-op until Plan D provisions AWS infrastructure
+      # (S3 bucket + IAM role/secrets). When AWS_PR_PREVIEW_ROLE secret is
+      # populated, the gated deploy + comment steps below activate.
+      - name: Check AWS configuration
+        id: aws-check
+        env:
+          AWS_PR_PREVIEW_ROLE: ${{ secrets.AWS_PR_PREVIEW_ROLE }}
+        run: |
+          if [ -z "$AWS_PR_PREVIEW_ROLE" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "AWS_PR_PREVIEW_ROLE is not set; skipping S3 upload (Plan D provisions infra)."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.aws-check.outputs.configured == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_PREVIEW_ROLE }}
+          aws-region: us-east-1
+
+      - name: Sync to S3 preview prefix
+        if: steps.aws-check.outputs.configured == 'true'
+        run: aws s3 sync packages/landing/out/ s3://vox-era-prod/previews/pr-${{ github.event.pull_request.number }}/ --delete
+
+      - name: Comment preview URL on PR (placeholder until Plan D)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- vox-era-preview -->';
+            const body = `${marker}\nLanding preview will be available at https://vox-era.com/previews/pr-${context.issue.number}/ once AWS infra lands (Plan D).`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

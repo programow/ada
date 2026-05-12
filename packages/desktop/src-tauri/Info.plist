@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Vox Era needs microphone access to transcribe your speech.</string>
+    <key>NSInputMonitoringUsageDescription</key>
+    <string>Vox Era needs Input Monitoring to listen for your Fn-key shortcut without consuming it. We only use it to detect when you press your chosen recording hotkey.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Vox Era may use Apple Events to refocus your previous app before pasting transcribed text.</string>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>

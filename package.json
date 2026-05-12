@@ -1,39 +1,25 @@
 {
-  "name": "ada",
-  "version": "1.0.0",
-  "main": "main.js",
+  "name": "vox-era",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Vox Era — cross-platform speech-to-text desktop app with multi-provider STT",
+  "license": "Apache-2.0",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --mac"
-  },
-  "keywords": [],
-  "author": "Programow",
-  "license": "ISC",
-  "description": "Speech to text desktop tool",
-  "build": {
-    "appId": "com.programow.ada",
-    "productName": "Ada",
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": "dmg",
-      "entitlements": "entitlements.plist",
-      "entitlementsInherit": "entitlements.plist",
-      "extendInfo": {
-        "NSMicrophoneUsageDescription": "Ada needs microphone access to record speech for transcription."
-      }
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer.js",
-      "index.html",
-      "config.json",
-      "trayIconTemplate.png",
-      "trayIconTemplate@2x.png"
-    ]
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "bun run --filter '*' test",
+    "test:unit": "bun run --filter '*' test:unit",
+    "test:integration": "bun run --filter '*' test:integration",
+    "prepare": "lefthook install"
   },
   "devDependencies": {
-    "electron": "^41.0.2",
-    "electron-builder": "^26.8.1"
+    "@biomejs/biome": "^1.9.0",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "lefthook": "^1.7.0",
+    "typescript": "^5.5.0"
   }
 }
