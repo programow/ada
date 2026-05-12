@@ -21,10 +21,13 @@ describe('Download', () => {
                 async () =>
                     new Response(
                         JSON.stringify({
-                            version: '0.1.0',
-                            mac: 'https://example.test/Vox-Era.dmg',
-                            win: null,
-                            linux: null,
+                            tag_name: 'v0.1.0',
+                            assets: [
+                                {
+                                    name: 'Vox.Era_0.1.0_universal.dmg',
+                                    browser_download_url: 'https://example.test/Vox-Era.dmg',
+                                },
+                            ],
                         }),
                         { status: 200 },
                     ),
