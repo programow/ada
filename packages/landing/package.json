@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --dir src",
     "test:unit": "vitest run --dir src",
     "test:integration": "echo 'landing test:integration — implemented in Plan C Section 6' && exit 0",
     "test:e2e": "playwright test",
