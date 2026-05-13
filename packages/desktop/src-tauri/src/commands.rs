@@ -94,7 +94,7 @@ pub fn get_platform_info() -> PlatformInfo {
     }
 }
 
-/// Restart the running Vox Era process. Called from the onboarding screen
+/// Restart the running bluemacaw process. Called from the onboarding screen
 /// after the user grants Accessibility / Input Monitoring on macOS, since
 /// TCC doesn't propagate authorisation changes into a running process.
 ///
@@ -105,7 +105,7 @@ pub fn get_platform_info() -> PlatformInfo {
 /// race against the process exit.
 #[tauri::command]
 pub fn restart_app(app: AppHandle) {
-    log::info!("restart_app: relaunching Vox Era");
+    log::info!("restart_app: relaunching bluemacaw");
     app.restart();
 }
 
@@ -156,7 +156,7 @@ pub fn check_input_monitoring_permission() -> PermissionState {
 /// the app is relaunched (TCC does not propagate authorization changes to
 /// a running process). Callers should poll
 /// [`check_input_monitoring_permission`] and prompt the user to quit and
-/// reopen Vox Era.
+/// reopen bluemacaw.
 #[tauri::command]
 pub fn request_input_monitoring_permission() -> Result<PermissionState, String> {
     crate::audio::permissions::request_input_monitoring_permission()
@@ -301,7 +301,7 @@ pub fn paste_text(state: State<'_, AppState>, text: String) -> Result<(), String
                 "paste_text: Accessibility permission not granted; keystroke will silently no-op"
             );
             return Err(format!(
-                "{ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again."
+                "{ERR_ACCESSIBILITY_REQUIRED} synthetic paste needs Accessibility. Grant bluemacaw in System Settings → Privacy & Security → Accessibility, then try again."
             ));
         }
     }
@@ -395,13 +395,13 @@ fn register_fn_hotkey(
             // TCC changes do NOT propagate to a running process. The user
             // must quit and reopen after toggling the switch, otherwise the
             // tap will keep failing even though Settings shows "on".
-            format!("{ERR_INPUT_MONITORING_REQUIRED} grant Vox Era in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app")
+            format!("{ERR_INPUT_MONITORING_REQUIRED} grant bluemacaw in System Settings → Privacy & Security → Input Monitoring, then quit and reopen the app")
         }
         crate::shortcut::ShortcutError::AccessibilityRequired => {
             // Defensive: the Fn tap should never surface this variant any
             // more, but if a future backend path does we still want a sane
             // message. Paste uses Accessibility — hence the wording.
-            format!("{ERR_ACCESSIBILITY_REQUIRED} grant Vox Era in System Settings → Privacy & Security → Accessibility, then try again")
+            format!("{ERR_ACCESSIBILITY_REQUIRED} grant bluemacaw in System Settings → Privacy & Security → Accessibility, then try again")
         }
         other => other.to_string(),
     })?;

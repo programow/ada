@@ -46,19 +46,19 @@ pub fn dispatch_event(id: &str) -> Option<TrayEvent> {
 /// Build the system tray icon + menu and register it with the app.
 ///
 /// Menu:
-/// * "Open Vox Era"          — show & focus the main window
+/// * "Open bluemacaw"          — show & focus the main window
 /// * separator
-/// * "Quit Vox Era"          — exits the process
+/// * "Quit bluemacaw"          — exits the process
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let open_main = MenuItem::with_id(
         app,
         menu_ids::OPEN_MAIN,
-        "Open Vox Era",
+        "Open bluemacaw",
         true,
         None::<&str>,
     )?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItem::with_id(app, menu_ids::QUIT, "Quit Vox Era", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, menu_ids::QUIT, "Quit bluemacaw", true, None::<&str>)?;
 
     let menu = Menu::with_items(app, &[&open_main, &separator, &quit])?;
 

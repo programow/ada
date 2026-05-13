@@ -1,6 +1,6 @@
 # Providers
 
-Vox Era ships nine STT (speech-to-text) providers. The registry is data-driven — every provider is a `ProviderConfig` value, registered exactly once in `packages/desktop/src/providers/index.ts`. There is no provider class, no provider factory, no provider DI container. The whole UI (model picker, pricing display, etc.) reads from the same array.
+bluemacaw ships nine STT (speech-to-text) providers. The registry is data-driven — every provider is a `ProviderConfig` value, registered exactly once in `packages/desktop/src/providers/index.ts`. There is no provider class, no provider factory, no provider DI container. The whole UI (model picker, pricing display, etc.) reads from the same array.
 
 ## Bundled providers
 

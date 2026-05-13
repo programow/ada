@@ -71,7 +71,7 @@ pub fn run() {
             commands::restart_app,
         ])
         .setup(|app| {
-            log::info!("voxera setup: building AppState with TauriClipboard");
+            log::info!("bluemacaw setup: building AppState with TauriClipboard");
             let clipboard = Arc::new(TauriClipboard::new(app.handle().clone()));
             let app_state = AppState {
                 audio: Box::new(MicrophoneSource::new()),
@@ -100,7 +100,7 @@ pub fn run() {
 
             // Tray-resident behaviour: closing the main window hides it and
             // (on macOS) hides the Dock icon, instead of quitting the app.
-            // Re-open via the tray "Open Vox Era" item, which reverses this.
+            // Re-open via the tray "Open bluemacaw" item, which reverses this.
             if let Some(main_window) = app.get_webview_window("main") {
                 let main_window_for_close = main_window.clone();
                 let app_handle = app.handle().clone();
@@ -124,5 +124,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Vox Era");
+        .expect("error while running bluemacaw");
 }

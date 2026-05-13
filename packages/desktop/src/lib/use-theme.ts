@@ -5,7 +5,7 @@ import { getTheme as dbGetTheme, setTheme as dbSetTheme } from './db';
 export type Theme = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-export const THEME_LOCAL_STORAGE_KEY = 'vox-era:resolved-theme';
+export const THEME_LOCAL_STORAGE_KEY = 'bluemacaw:resolved-theme';
 const DARK_CLASS = 'dark';
 
 function readSystemPreference(): ResolvedTheme {

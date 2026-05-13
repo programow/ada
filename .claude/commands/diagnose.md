@@ -1,5 +1,5 @@
 ---
-description: Read-only diagnostic for Vox Era — packaged install, permissions, config sanity.
+description: Read-only diagnostic for bluemacaw — packaged install, permissions, config sanity.
 ---
 
 Run the following checks in order. For each, print a single line of the form `✓ <description>` or `✗ <description> — <fix hint>`. Do not modify any state. After all checks, print a one-line summary.
@@ -27,15 +27,15 @@ test -f packages/desktop/src-tauri/tauri.conf.json
 test -f packages/desktop/package.json
 ```
 
-Fix hint: "Not in the Vox Era repo root."
+Fix hint: "Not in the bluemacaw repo root."
 
 ### Bundle identifier matches
 
 ```bash
-grep -q '"identifier": "com.vhtechnology.voxera"' packages/desktop/src-tauri/tauri.conf.json
+grep -q '"identifier": "com.vhtechnology.bluemacaw"' packages/desktop/src-tauri/tauri.conf.json
 ```
 
-Fix hint: "`tauri.conf.json` identifier drift — should be `com.vhtechnology.voxera`."
+Fix hint: "`tauri.conf.json` identifier drift — should be `com.vhtechnology.bluemacaw`."
 
 ## macOS
 
@@ -57,14 +57,14 @@ Fix hint: "Add the usage description to `Info.plist`; macOS rejects mic requests
 ### Installed app present (if `/build-clean` has been run)
 
 ```bash
-test -d "/Applications/Vox Era.app"
+test -d "/Applications/bluemacaw.app"
 ```
 
-Not an automatic ✗ — print informational "Vox Era.app not installed (run `/build-clean`)." if absent.
+Not an automatic ✗ — print informational "bluemacaw.app not installed (run `/build-clean`)." if absent.
 
-### TCC for `com.vhtechnology.voxera`
+### TCC for `com.vhtechnology.bluemacaw`
 
-Informational only — `tccutil` cannot read state, only reset. Suggest: "System Settings → Privacy & Security → Microphone / Accessibility — confirm `Vox Era` is enabled."
+Informational only — `tccutil` cannot read state, only reset. Suggest: "System Settings → Privacy & Security → Microphone / Accessibility — confirm `bluemacaw` is enabled."
 
 ## Linux
 

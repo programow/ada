@@ -5,7 +5,7 @@ description: Use when setting up Pulumi infrastructure-as-code with Pulumi Cloud
 
 # Pulumi Cloud IaC
 
-Pulumi Cloud (`app.pulumi.com`) manages stack state and secrets server-side. Vox Era uses a personal Pulumi Cloud account (`guilherme-vozniak-a-gmail-com`) as the backend — free for personal use, no S3 bucket or AWS KMS key to bootstrap.
+Pulumi Cloud (`app.pulumi.com`) manages stack state and secrets server-side. bluemacaw uses a personal Pulumi Cloud account (`guilherme-vozniak-a-gmail-com`) as the backend — free for personal use, no S3 bucket or AWS KMS key to bootstrap.
 
 ## Login
 
@@ -17,7 +17,7 @@ pulumi login
 
 This stores credentials in `~/.pulumi/credentials.json`. The CLI now points at `https://api.pulumi.com` by default; `PULUMI_BACKEND_URL` should not be set.
 
-CI uses a long-lived access token instead. Mint one at https://app.pulumi.com/account/tokens (description: `vox-era-ci`, expiration: 1 year, rotate annually). Set as the `PULUMI_ACCESS_TOKEN` env var in GitHub Actions; the CLI picks it up automatically.
+CI uses a long-lived access token instead. Mint one at https://app.pulumi.com/account/tokens (description: `bluemacaw-ci`, expiration: 1 year, rotate annually). Set as the `PULUMI_ACCESS_TOKEN` env var in GitHub Actions; the CLI picks it up automatically.
 
 ## Stack init
 
@@ -28,14 +28,14 @@ cd packages/infra
 pulumi stack init guilherme-vozniak-a-gmail-com/prod
 ```
 
-Fully-qualified stack identifier: `<pulumi-org>/<project>/<stack>`, e.g. `guilherme-vozniak-a-gmail-com/vox-era-infra/prod`. Pulumi Cloud renders this at `https://app.pulumi.com/<pulumi-org>/<project>/<stack>`.
+Fully-qualified stack identifier: `<pulumi-org>/<project>/<stack>`, e.g. `guilherme-vozniak-a-gmail-com/bluemacaw-infra/prod`. Pulumi Cloud renders this at `https://app.pulumi.com/<pulumi-org>/<project>/<stack>`.
 
 ## `Pulumi.yaml` (project metadata)
 
 ```yaml
-name: vox-era-infra
+name: bluemacaw-infra
 runtime: nodejs
-description: Vox Era infrastructure (AWS S3, CloudFront, ACM, IAM/OIDC + Cloudflare DNS)
+description: bluemacaw infrastructure (AWS S3, CloudFront, ACM, IAM/OIDC + Cloudflare DNS)
 ```
 
 No `backend:` block. Pulumi Cloud is the default backend when the CLI is logged in to `app.pulumi.com`. Including a `backend:` block here would force a different (self-hosted) backend.
@@ -47,22 +47,22 @@ Pulumi Cloud only manages state — your AWS provider still needs credentials. I
 ```typescript
 import * as aws from '@pulumi/aws';
 
-const awsProvider = new aws.Provider('voxera', {
-    profile: 'voxera',
+const awsProvider = new aws.Provider('bluemacaw', {
+    profile: 'bluemacaw',
     region: 'us-east-1',
 });
 
 const bucket = new aws.s3.BucketV2('site', { bucket: 'site-prod' }, { provider: awsProvider });
 ```
 
-Local: `AWS_PROFILE=voxera pulumi up --stack prod`. CI: assume the OIDC role first, then `pulumi up` (the AWS provider reads the role's temporary credentials from env).
+Local: `AWS_PROFILE=bluemacaw pulumi up --stack prod`. CI: assume the OIDC role first, then `pulumi up` (the AWS provider reads the role's temporary credentials from env).
 
 ## Encrypted stack config
 
 Pulumi Cloud stores config secrets in encrypted form server-side. The local `Pulumi.<stack>.yaml` shows them as `secure: "v1:..."` ciphertext.
 
 ```bash
-pulumi config set --stack prod domain vox-era.com
+pulumi config set --stack prod domain bluemacaw.com
 pulumi config set --stack prod --secret cloudflareApiToken xyz...
 ```
 
@@ -125,7 +125,7 @@ pulumi stack export --stack prod > stack-export-$(date +%Y%m%d).json
 - **Stack name without org prefix** — `pulumi stack init prod` (no `<org>/` prefix) creates an individual-account stack. Always use `<org>/<stack>` form when sharing or in CI.
 - **`AWS_PROFILE` not set when running `pulumi up`** — the AWS provider reads env vars; Pulumi Cloud has nothing to do with AWS auth. Either prefix every command or set in shell.
 - **`PULUMI_ACCESS_TOKEN` rotated without updating GitHub Secrets** — release pipeline fails with `401 Unauthorized`. Rotate annually with calendar reminder.
-- **Pulumi Cloud free-tier limits** — personal accounts are free for individual use. If multiple maintainers need write access, an Individual or Team plan is required. Vox Era is single-maintainer at v1.
+- **Pulumi Cloud free-tier limits** — personal accounts are free for individual use. If multiple maintainers need write access, an Individual or Team plan is required. bluemacaw is single-maintainer at v1.
 
 ## References
 

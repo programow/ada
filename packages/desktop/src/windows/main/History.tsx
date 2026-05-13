@@ -38,9 +38,9 @@ function toTranscriptionRow(e: HistoryEntry): TranscriptionRow {
 function exportRow(e: HistoryEntry, format: 'txt' | 'md') {
     const row = toTranscriptionRow(e);
     if (format === 'txt') {
-        downloadBlob(`vox-era-${row.id}.txt`, formatRowAsTxt(row), 'text/plain');
+        downloadBlob(`bluemacaw-${row.id}.txt`, formatRowAsTxt(row), 'text/plain');
     } else {
-        downloadBlob(`vox-era-${row.id}.md`, formatRowAsMd(row), 'text/markdown');
+        downloadBlob(`bluemacaw-${row.id}.md`, formatRowAsMd(row), 'text/markdown');
     }
 }
 
@@ -110,7 +110,7 @@ export function History({ entries, pageSize = 25, onDelete, onExportFiltered }: 
                         variant="outline"
                         onClick={() => {
                             const md = formatBulkAsMd(filtered.map(toTranscriptionRow), 'filtered');
-                            downloadBlob('vox-era-history.md', md, 'text/markdown');
+                            downloadBlob('bluemacaw-history.md', md, 'text/markdown');
                             onExportFiltered?.(filtered);
                         }}
                     >

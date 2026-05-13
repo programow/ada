@@ -1,4 +1,4 @@
-# Vox Era hook orchestration. Three gates per spec §10.2.
+# bluemacaw hook orchestration. Three gates per spec §10.2.
 # - pre-commit: cosmetic, fast, staged-files only
 # - commit-msg: conventional commits enforcement
 # - pre-push: correctness checks (typecheck + lint at root; test runs once packages exist)

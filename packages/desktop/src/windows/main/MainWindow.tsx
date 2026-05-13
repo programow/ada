@@ -28,7 +28,7 @@ interface UndoToastState {
 
 /**
  * Outer gate — routes the user through onboarding the first time they
- * launch Vox Era on a machine where required permissions are missing,
+ * launch bluemacaw on a machine where required permissions are missing,
  * silently bypasses it on every subsequent launch (and on Windows/Linux
  * where everything is usually already granted).
  */
@@ -122,7 +122,7 @@ export function MainWindowInner() {
                     <img src="/logo.svg" alt="" className="h-12 w-12" />
                     <div>
                         <h1 className="text-3xl font-extrabold uppercase tracking-tight">
-                            Joe the bird
+                            bluemacaw
                         </h1>
                         <p className="text-sm font-medium">Multi-provider speech-to-text.</p>
                     </div>

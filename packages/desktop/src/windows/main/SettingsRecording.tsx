@@ -106,7 +106,7 @@ export function SettingsRecording() {
             console.error('register_hotkey failed', e);
             if (msg.includes(ERR_ACCESSIBILITY_REQUIRED)) {
                 setHotkeyError(
-                    'Fn key needs Accessibility permission. Click Open Settings, grant Vox Era, then choose Use Fn again.',
+                    'Fn key needs Accessibility permission. Click Open Settings, grant bluemacaw, then choose Use Fn again.',
                 );
                 try {
                     await vox.requestAccessibilityPermission();
@@ -264,7 +264,7 @@ export function SettingsRecording() {
                                 To use Fn, macOS needs <strong>Press 🌐 key to</strong> set to{' '}
                                 <strong>Do Nothing</strong> (currently:{' '}
                                 <strong>{fnUsageLabel(pendingFnSetup.previous)}</strong>). This is a
-                                global system setting. Vox Era will restore your original value
+                                global system setting. bluemacaw will restore your original value
                                 automatically when you switch away from Fn.
                             </p>
                             <div className="flex justify-end gap-2">

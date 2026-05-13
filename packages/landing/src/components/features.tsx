@@ -1,7 +1,7 @@
 const FEATURES = [
     {
         title: 'BYOK',
-        body: 'Your API keys live in your OS keychain. There is no Joe the bird backend.',
+        body: 'Your API keys live in your OS keychain. There is no bluemacaw backend.',
     },
     {
         title: '9 providers',

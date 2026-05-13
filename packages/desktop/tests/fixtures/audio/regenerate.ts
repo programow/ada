@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Regenerates the audio fixtures used by Vox Era's tests.
+// Regenerates the audio fixtures used by bluemacaw's tests.
 //
 // Usage:
 //   OPENAI_API_KEY=sk-... bun packages/desktop/tests/fixtures/audio/regenerate.ts

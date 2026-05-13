@@ -1,5 +1,5 @@
 ---
-description: Start the Vox Era Next.js landing dev server.
+description: Start the bluemacaw Next.js landing dev server.
 ---
 
 Start the Next.js 15 landing site in dev mode. Run from the repo root:
@@ -25,7 +25,7 @@ test -f packages/landing/next.config.mjs
 test -f packages/landing/package.json
 ```
 
-If either is missing, abort with: "Not in the Vox Era repo root, or `packages/landing` is missing."
+If either is missing, abort with: "Not in the bluemacaw repo root, or `packages/landing` is missing."
 
 ## When something goes wrong
 

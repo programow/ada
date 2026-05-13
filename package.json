@@ -1,8 +1,8 @@
 {
-  "name": "vox-era",
+  "name": "bluemacaw",
   "private": true,
   "version": "0.0.0",
-  "description": "Vox Era — cross-platform speech-to-text desktop app with multi-provider STT",
+  "description": "bluemacaw — cross-platform speech-to-text desktop app with multi-provider STT",
   "license": "Apache-2.0",
   "workspaces": ["packages/*"],
   "scripts": {

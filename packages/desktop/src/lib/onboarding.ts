@@ -9,7 +9,7 @@ import { load } from '@tauri-apps/plugin-store';
  * Versioned (`_v1`) so a future onboarding redesign can introduce a new
  * key without colliding with existing user state.
  */
-const STORE_PATH = 'vox-era-onboarding.bin';
+const STORE_PATH = 'bluemacaw-onboarding.bin';
 const STORE_KEY = 'onboarding_v1_completed';
 
 /**

@@ -1,6 +1,6 @@
 # Development Workflow
 
-Vox Era ships project-local Claude Code slash commands under [`.claude/commands/`](../.claude/commands/). They automate the rituals this project would otherwise require you to remember and run by hand.
+bluemacaw ships project-local Claude Code slash commands under [`.claude/commands/`](../.claude/commands/). They automate the rituals this project would otherwise require you to remember and run by hand.
 
 This doc lists what each command does and when to use it. The commands themselves are the source of truth for *how* — each one is a small markdown file with executable instructions.
 
@@ -16,9 +16,9 @@ This doc lists what each command does and when to use it. The commands themselve
 | Linting + formatting check | `/lint` | `biome check .`. Use `bun run lint:fix` to auto-fix. |
 | Coverage report | `/coverage` | Vitest with `@vitest/coverage-v8`. |
 | Adding an STT provider | `/add-provider <id> <Name>` | Scaffolds adapter + registry entry + tests + docs. |
-| Building + installing the packaged app locally | `/build-clean` | Full Tauri build, installs to `/Applications/Vox Era.app` on macOS. |
+| Building + installing the packaged app locally | `/build-clean` | Full Tauri build, installs to `/Applications/bluemacaw.app` on macOS. |
 | Diagnosing a packaged-build problem | `/diagnose` | Read-only checks for entitlements, signature, runtime libs. |
-| TCC prompts misbehaving on macOS | `/reset-perms` | `tccutil reset` for `com.vhtechnology.voxera`. macOS-only. |
+| TCC prompts misbehaving on macOS | `/reset-perms` | `tccutil reset` for `com.vhtechnology.bluemacaw`. macOS-only. |
 | Auditing doc obligations on the current branch | `/sync-docs` | Walks the trigger table from `CONTRIBUTING.md`. |
 
 ## When to bypass the slash commands
@@ -27,11 +27,11 @@ You shouldn't normally, but valid cases:
 
 - **Iterating on a single Rust file** without the full Tauri shell: `cd packages/desktop/src-tauri && cargo build` (won't run the app, but compiles fast).
 - **Reproducing a specific signing or capability bug:** you may want to run `tauri build` directly with extra `--verbose` flags. `/build-clean` won't let you skip steps.
-- **Investigating TCC behavior with a non-Vox-Era bundle id:** `tccutil` by hand, since `/reset-perms` hardcodes `com.vhtechnology.voxera`.
+- **Investigating TCC behavior with a non-bluemacaw bundle id:** `tccutil` by hand, since `/reset-perms` hardcodes `com.vhtechnology.bluemacaw`.
 
 ## Legacy Electron app
 
-The archived Ada Electron app under `legacy/electron/` still has its own `/dev` and `/diagnose-mic` slash commands. They are scoped to that subtree and operate on `com.programow.ada`, not Vox Era. See [`legacy/electron/README.md`](../legacy/electron/README.md). The legacy tree is removed at the end of Plan D.
+The archived Ada Electron app under `legacy/electron/` still has its own `/dev` and `/diagnose-mic` slash commands. They are scoped to that subtree and operate on `com.programow.ada`, not bluemacaw. See [`legacy/electron/README.md`](../legacy/electron/README.md). The legacy tree is removed at the end of Plan D.
 
 ## Adding a new command
 

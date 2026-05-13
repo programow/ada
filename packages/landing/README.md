@@ -1,13 +1,13 @@
-# @vox-era/landing
+# @bluemacaw/landing
 
-Vox Era's marketing site — Next.js 15 App Router with static export, Tailwind v3, and a hand-written shadcn/ui-styled component library themed via [neobrutalism.dev](https://www.neobrutalism.dev).
+bluemacaw's marketing site — Next.js 15 App Router with static export, Tailwind v3, and a hand-written shadcn/ui-styled component library themed via [neobrutalism.dev](https://www.neobrutalism.dev).
 
-Deployed to S3 + CloudFront under `vox-era.com` (production infra lands in Plan D). PR previews land at `/previews/pr-<num>/` once Plan D provisions the bucket.
+Deployed to S3 + CloudFront under `bluemacaw.com` (production infra lands in Plan D). PR previews land at `/previews/pr-<num>/` once Plan D provisions the bucket.
 
 ## Stack
 
 - **Framework:** Next.js 15 (App Router, `output: 'export'` for fully static SSG)
-- **Styling:** Tailwind CSS v3 + custom neobrutalism palette (warm yellow `50 100% 65%`, cream bg, hard black borders, offset shadows)
+- **Styling:** Tailwind CSS v3 + the shared design tokens (white-navy-blue light, dark-navy dark) sourced from the same CSS variables the desktop uses
 - **Components:** Hand-written shadcn primitives (`button`, `card`, `badge`, `separator`) plus page-level sections in `src/components/`. The `src/components/ui/` primitives mirror those used by the desktop app at `packages/desktop/src/components/ui/`.
 - **Tests:** Vitest + happy-dom + `@testing-library/react` for unit; Playwright (chromium-only) for E2E
 - **Lint/format:** Biome (root config)
@@ -67,6 +67,6 @@ First-time setup (one-time): `bunx playwright install chromium`. CI installs bro
 ## Deploy
 
 - **PR previews:** `.github/workflows/pr-preview.yml` triggers on PR pushes that touch `packages/landing/**`, builds the static export, and (once Plan D's AWS infra exists) uploads `out/` to `s3://<bucket>/previews/pr-<num>/`. Until then it builds and posts a placeholder preview URL comment.
-- **Production:** Plan D's `release.yml` rebuilds the landing on every release tag, syncs `out/` to `s3://vox-era-prod/`, and invalidates CloudFront.
+- **Production:** Plan D's `release.yml` rebuilds the landing on every release tag, syncs `out/` to `s3://bluemacaw-prod/`, and invalidates CloudFront.
 
 Provisioning of the S3 bucket, CloudFront distribution, ACM cert, and Cloudflare DNS records is owned by Plan D (`packages/infra/`).

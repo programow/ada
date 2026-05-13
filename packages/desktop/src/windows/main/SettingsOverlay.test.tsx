@@ -7,9 +7,9 @@ const { listenMock, fireOff } = vi.hoisted(() => {
     let offHandler: Handler | null = null;
     return {
         listenMock: vi.fn(async (name: string, h: Handler) => {
-            if (name === 'vox-era://overlay-position-setup-off') offHandler = h;
+            if (name === 'bluemacaw://overlay-position-setup-off') offHandler = h;
             return () => {
-                if (name === 'vox-era://overlay-position-setup-off') offHandler = null;
+                if (name === 'bluemacaw://overlay-position-setup-off') offHandler = null;
             };
         }),
         fireOff: (payload: { reason: 'manual' | 'idle' | 'recording-wins' }) =>
@@ -25,7 +25,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/overlay-bridge', () => ({
-    OVERLAY_POSITION_SETUP_OFF_EVENT: 'vox-era://overlay-position-setup-off',
+    OVERLAY_POSITION_SETUP_OFF_EVENT: 'bluemacaw://overlay-position-setup-off',
     hideOverlayWindow: vi.fn(async () => undefined),
     enterOverlayPositionSetup: vi.fn(async () => undefined),
     exitOverlayPositionSetup: vi.fn(async () => undefined),

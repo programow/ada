@@ -1,12 +1,12 @@
 [package]
-name = "voxera"
+name = "bluemacaw"
 version = "0.0.0"
-description = "Vox Era desktop"
+description = "bluemacaw desktop"
 authors = ["Programow"]
 edition = "2021"
 
 [lib]
-name = "voxera_lib"
+name = "bluemacaw_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

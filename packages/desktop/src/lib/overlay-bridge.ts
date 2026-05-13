@@ -5,10 +5,10 @@ import { getOverlayEnabled, setOverlayPosition } from './db';
 import { EVT_SHORTCUT_CANCEL, EVT_SHORTCUT_TOGGLE } from './markers';
 import type { RecordingState } from './recording-controller';
 
-export const RECORDING_STATE_EVENT = 'vox-era://recording-state';
-export const OVERLAY_POSITION_SETUP_ON_EVENT = 'vox-era://overlay-position-setup-on';
-export const OVERLAY_POSITION_SETUP_OFF_EVENT = 'vox-era://overlay-position-setup-off';
-export const OVERLAY_RESET_POSITION_EVENT = 'vox-era://overlay-reset-position';
+export const RECORDING_STATE_EVENT = 'bluemacaw://recording-state';
+export const OVERLAY_POSITION_SETUP_ON_EVENT = 'bluemacaw://overlay-position-setup-on';
+export const OVERLAY_POSITION_SETUP_OFF_EVENT = 'bluemacaw://overlay-position-setup-off';
+export const OVERLAY_RESET_POSITION_EVENT = 'bluemacaw://overlay-reset-position';
 
 const OVERLAY_LABEL = 'overlay';
 

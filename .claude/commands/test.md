@@ -1,5 +1,5 @@
 ---
-description: Run the full Vox Era test suite (Vitest + Rust unit tests).
+description: Run the full bluemacaw test suite (Vitest + Rust unit tests).
 ---
 
 Run every layer of the test pyramid for the desktop app. Per `docs/testing.md`:
@@ -10,7 +10,7 @@ Run every layer of the test pyramid for the desktop app. Per `docs/testing.md`:
 bun run test
 ```
 
-This fans out to all workspace packages via `bun run --filter '*' test`. For `@vox-era/desktop` it runs `vitest run` over `src/**/*.test.ts(x)` and `tests/**/*.test.ts`.
+This fans out to all workspace packages via `bun run --filter '*' test`. For `@bluemacaw/desktop` it runs `vitest run` over `src/**/*.test.ts(x)` and `tests/**/*.test.ts`.
 
 2. Rust unit tests: from `packages/desktop/src-tauri`:
 

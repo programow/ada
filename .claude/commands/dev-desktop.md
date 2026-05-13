@@ -1,5 +1,5 @@
 ---
-description: Start the Vox Era Tauri desktop dev server (vite + cargo watch).
+description: Start the bluemacaw Tauri desktop dev server (vite + cargo watch).
 ---
 
 Start the Tauri 2 desktop app in dev mode. Run from the repo root:
@@ -26,7 +26,7 @@ test -f packages/desktop/src-tauri/tauri.conf.json
 test -f packages/desktop/package.json
 ```
 
-If either is missing, abort with: "Not in the Vox Era repo root, or `packages/desktop` is missing."
+If either is missing, abort with: "Not in the bluemacaw repo root, or `packages/desktop` is missing."
 
 ## When something goes wrong
 

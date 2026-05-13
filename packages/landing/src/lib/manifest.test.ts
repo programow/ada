@@ -41,9 +41,9 @@ describe('fetchManifest', () => {
                         browser_download_url: 'https://example.test/v0.2.0/Vox.Era_0.2.0_x64.msi',
                     },
                     {
-                        name: 'vox-era_0.2.0_amd64.AppImage',
+                        name: 'bluemacaw_0.2.0_amd64.AppImage',
                         browser_download_url:
-                            'https://example.test/v0.2.0/vox-era_0.2.0_amd64.AppImage',
+                            'https://example.test/v0.2.0/bluemacaw_0.2.0_amd64.AppImage',
                     },
                 ]),
             ) as typeof fetch,

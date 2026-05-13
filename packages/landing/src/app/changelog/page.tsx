@@ -10,7 +10,7 @@ export default async function ChangelogPage() {
             <main className="mx-auto max-w-3xl px-6 py-16">
                 <h1 className="mb-3 text-5xl font-black tracking-tight text-fg">Changelog</h1>
                 <p className="mb-10 text-muted-foreground">
-                    Releases of Joe the bird, published from the GitHub repo.
+                    Releases of bluemacaw, published from the GitHub repo.
                 </p>
                 {releases.length === 0 ? (
                     <div className="rounded-2xl bg-surface p-8 text-center shadow-card">

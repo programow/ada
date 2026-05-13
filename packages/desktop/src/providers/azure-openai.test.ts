@@ -45,7 +45,7 @@ describe('azure-openai transcription HTTP', () => {
         process.env.AZURE_RESOURCE_NAME = previousResourceName;
     });
     beforeEach(() => {
-        process.env.AZURE_RESOURCE_NAME = 'voxeratest';
+        process.env.AZURE_RESOURCE_NAME = 'bluemacawtest';
     });
 
     const fakeAudio = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]);
@@ -58,7 +58,7 @@ describe('azure-openai transcription HTTP', () => {
         } = { apiKey: null, url: null, contentType: null };
         server.use(
             http.post(
-                'https://voxeratest.openai.azure.com/openai/v1/audio/transcriptions',
+                'https://bluemacawtest.openai.azure.com/openai/v1/audio/transcriptions',
                 ({ request }) => {
                     captured.apiKey = request.headers.get('api-key');
                     captured.contentType = request.headers.get('content-type');
@@ -73,7 +73,7 @@ describe('azure-openai transcription HTTP', () => {
 
         expect(result.text).toBe('hello from azure');
         expect(captured.apiKey).toBe('az-test-key');
-        expect(captured.url?.host).toBe('voxeratest.openai.azure.com');
+        expect(captured.url?.host).toBe('bluemacawtest.openai.azure.com');
         expect(captured.url?.pathname).toBe('/openai/v1/audio/transcriptions');
         expect(captured.url?.searchParams.get('api-version')).toBeTruthy();
         // OpenAI-style transcription uses multipart form data.
@@ -82,7 +82,7 @@ describe('azure-openai transcription HTTP', () => {
 
     it('propagates 401 unauthorized errors', async () => {
         server.use(
-            http.post('https://voxeratest.openai.azure.com/openai/v1/audio/transcriptions', () =>
+            http.post('https://bluemacawtest.openai.azure.com/openai/v1/audio/transcriptions', () =>
                 HttpResponse.json({ error: { message: 'unauthorized' } }, { status: 401 }),
             ),
         );
@@ -92,7 +92,7 @@ describe('azure-openai transcription HTTP', () => {
 
     it('propagates 429 rate-limit errors', async () => {
         server.use(
-            http.post('https://voxeratest.openai.azure.com/openai/v1/audio/transcriptions', () =>
+            http.post('https://bluemacawtest.openai.azure.com/openai/v1/audio/transcriptions', () =>
                 HttpResponse.json({ error: { message: 'rate limited' } }, { status: 429 }),
             ),
         );
@@ -102,7 +102,7 @@ describe('azure-openai transcription HTTP', () => {
 
     it('does not crash on a 500 with HTML body', async () => {
         server.use(
-            http.post('https://voxeratest.openai.azure.com/openai/v1/audio/transcriptions', () =>
+            http.post('https://bluemacawtest.openai.azure.com/openai/v1/audio/transcriptions', () =>
                 HttpResponse.html('<html>upstream error</html>', { status: 500 }),
             ),
         );

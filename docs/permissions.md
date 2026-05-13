@@ -1,6 +1,6 @@
 # Permissions
 
-Vox Era needs up to three privacy grants on platforms that gate them:
+bluemacaw needs up to three privacy grants on platforms that gate them:
 
 - **Microphone** — to record audio. Gated on macOS (TCC) and Windows; never gated on Linux.
 - **Accessibility** — to inject the synthetic `Cmd+V` / `Ctrl+V` paste keystroke. Gated on macOS only; Windows allows `SendInput` without a per-app grant, Linux's `enigo` (XTest / libei) works without one.
@@ -26,7 +26,7 @@ Required pieces:
 
 - **Runtime trigger** — `audio::permissions::macos::request_accessibility_permission` calls `AXIsProcessTrustedWithOptions` with `kAXTrustedCheckOptionPrompt: true`. macOS opens System Settings → Privacy & Security → Accessibility; the user must flip the toggle.
 - **Why:** the paste step uses `enigo` which lowers to `CGEventPost`. macOS gates synthetic event injection on Accessibility.
-- **Bundle scope:** per `tauri.conf.json` `identifier`, i.e. `com.vhtechnology.voxera`.
+- **Bundle scope:** per `tauri.conf.json` `identifier`, i.e. `com.vhtechnology.bluemacaw`.
 - **Polling vs. prompting:** `check_accessibility_permission` (non-prompting) is what the onboarding poll uses every second; `check_accessibility_permission_prompting` (rate-limited prompt) is what the explicit "Grant Accessibility" button calls.
 
 ### Input Monitoring (Fn-key hotkey)
@@ -35,11 +35,11 @@ Required pieces:
 
 - **Runtime trigger** — only when the user picks `HotkeyCombo::Fn` in Settings → Recording. `MacOsFnTap::register` installs the tap; if Input Monitoring is missing, the manager surfaces `ShortcutError::InputMonitoringRequired` and the UI prompts the user to grant.
 - **Usage description** — `NSInputMonitoringUsageDescription` in `Info.plist`. Required for macOS to show the request dialog.
-- **TCC propagation gotcha:** macOS only re-reads Input Monitoring grants on process launch. After the user grants, Vox Era must restart — hence the `restart_app` Tauri command exposed to the webview.
+- **TCC propagation gotcha:** macOS only re-reads Input Monitoring grants on process launch. After the user grants, bluemacaw must restart — hence the `restart_app` Tauri command exposed to the webview.
 
 ### Apple Events (optional)
 
-`NSAppleEventsUsageDescription` is present in `Info.plist` because Vox Era may use Apple Events to refocus the previously-focused app before pasting. No runtime code requests this today; the string is staged for that hardening.
+`NSAppleEventsUsageDescription` is present in `Info.plist` because bluemacaw may use Apple Events to refocus the previously-focused app before pasting. No runtime code requests this today; the string is staged for that hardening.
 
 ## Windows
 
@@ -70,9 +70,9 @@ Not gated. Synthetic keystrokes via `enigo` (XTest under X11) work without a per
 
 ## Dev mode vs packaged build (macOS)
 
-`bun run tauri:dev` runs Vox Era from your terminal in debug mode. macOS Microphone, Accessibility, and Input Monitoring grants are inherited from the parent process — i.e. from your terminal application (Terminal.app, iTerm, Ghostty, etc.). If the terminal already has those grants, dev-mode Vox Era just works without prompting. **This means a dev build is not a fair test of the packaged permission flow.**
+`bun run tauri:dev` runs bluemacaw from your terminal in debug mode. macOS Microphone, Accessibility, and Input Monitoring grants are inherited from the parent process — i.e. from your terminal application (Terminal.app, iTerm, Ghostty, etc.). If the terminal already has those grants, dev-mode bluemacaw just works without prompting. **This means a dev build is not a fair test of the packaged permission flow.**
 
-A packaged build (`/Applications/Vox Era.app`) has its own bundle id (`com.vhtechnology.voxera`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
+A packaged build (`/Applications/bluemacaw.app`) has its own bundle id (`com.vhtechnology.bluemacaw`) and asks TCC for its own grants. Always test permission-related changes against the packaged build via `/build-clean`.
 
 Windows and Linux do not have this dev-mode shortcut; the privacy panels see the binary path, not the parent process.
 
@@ -81,12 +81,12 @@ Windows and Linux do not have this dev-mode shortcut; the privacy panels see the
 If prompts no longer appear, TCC has cached a decision. Reset with:
 
 ```bash
-tccutil reset Microphone com.vhtechnology.voxera
-tccutil reset Accessibility com.vhtechnology.voxera
-tccutil reset ListenEvent com.vhtechnology.voxera
+tccutil reset Microphone com.vhtechnology.bluemacaw
+tccutil reset Accessibility com.vhtechnology.bluemacaw
+tccutil reset ListenEvent com.vhtechnology.bluemacaw
 ```
 
-Or run `/reset-perms`. Then relaunch Vox Era.
+Or run `/reset-perms`. Then relaunch bluemacaw.
 
 ## Spec cross-references
 
