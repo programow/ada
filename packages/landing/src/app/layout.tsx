@@ -19,15 +19,29 @@ export const metadata: Metadata = {
     },
 };
 
-// Runs before paint to set the `dark` class on <html>, avoiding a flash when
-// the user's saved preference (or system preference) is dark. Kept inline
-// because external scripts can't beat first paint.
+// FOUC-prevention: applies `.dark` to <html> synchronously, before any
+// stylesheet parses, matching whatever the React ThemeToggle will resolve
+// once it mounts. Reads, in priority order:
+//   1. `vox-era:resolved-theme` — cached value written by the toggle on every
+//      apply. Always trusted when present, so the next cold start lines up
+//      with the user's last actually-applied theme.
+//   2. `vox-era:theme-preference` — the user's explicit choice. If 'system'
+//      (or unset), falls through to prefers-color-scheme.
+//   3. `prefers-color-scheme` — default for first launch.
+// Keys match the desktop's useTheme conventions so reasoning is uniform.
 const themeBootScript = `
 (function(){try{
-  var saved = localStorage.getItem('theme');
-  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  var dark = saved ? saved === 'dark' : prefersDark;
-  if (dark) document.documentElement.classList.add('dark');
+  var cached = localStorage.getItem('vox-era:resolved-theme');
+  if (cached === 'dark' || cached === 'light') {
+    if (cached === 'dark') document.documentElement.classList.add('dark');
+    return;
+  }
+  var pref = localStorage.getItem('vox-era:theme-preference');
+  if (pref === 'dark') { document.documentElement.classList.add('dark'); return; }
+  if (pref === 'light') { return; }
+  // pref is 'system' or unset — follow the OS.
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (prefersDark) document.documentElement.classList.add('dark');
 }catch(e){}})();
 `;
 
