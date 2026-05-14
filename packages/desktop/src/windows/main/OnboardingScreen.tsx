@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -12,7 +12,8 @@ import { type PermissionState, vox } from '@/lib/invoke';
 import { markOnboardingCompleted } from '@/lib/onboarding';
 import type { PermissionKey } from '@/lib/platform';
 import { useOnboardingStatus } from '@/lib/use-onboarding-status';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 interface OnboardingScreenProps {
     /** Called when the user completes or skips onboarding. Parent should
@@ -23,24 +24,80 @@ interface OnboardingScreenProps {
 interface RowMeta {
     title: string;
     description: string;
-    icon: string;
+    icon: ReactNode;
+}
+
+const ICON_BASE_CLASS = 'h-5 w-5 stroke-current text-brand-blue dark:text-main-foreground';
+
+function MicIcon() {
+    return (
+        <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={ICON_BASE_CLASS}
+        >
+            <rect x="9" y="3" width="6" height="12" rx="3" />
+            <path d="M5 11a7 7 0 0 0 14 0" />
+            <path d="M12 18v3" />
+        </svg>
+    );
+}
+
+function AxIcon() {
+    return (
+        <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={ICON_BASE_CLASS}
+        >
+            <circle cx="12" cy="5" r="1.6" />
+            <path d="M4 9h16" />
+            <path d="M12 9v12" />
+            <path d="M9 21l3-6 3 6" />
+        </svg>
+    );
+}
+
+function KeyIcon() {
+    return (
+        <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={ICON_BASE_CLASS}
+        >
+            <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+            <path d="M7 10h0.01M11 10h0.01M15 10h0.01M7 14h10" />
+        </svg>
+    );
 }
 
 const ROW_META: Record<PermissionKey, RowMeta> = {
     microphone: {
         title: 'Microphone',
         description: 'Required to record your speech.',
-        icon: 'MIC',
+        icon: <MicIcon />,
     },
     accessibility: {
         title: 'Accessibility',
         description: 'Lets bluemacaw paste transcribed text into the focused app.',
-        icon: 'AX',
+        icon: <AxIcon />,
     },
     'input-monitoring': {
         title: 'Input Monitoring',
         description: 'Lets bluemacaw listen for your Fn-key shortcut.',
-        icon: 'KEY',
+        icon: <KeyIcon />,
     },
 };
 
@@ -59,10 +116,14 @@ function statusLabel(state: PermissionState | undefined): string {
     return 'Checking…';
 }
 
-function statusBadgeClass(state: PermissionState | undefined): string {
-    if (state === 'Granted') return 'bg-green-300';
-    if (state === 'Denied') return 'bg-red-300';
-    return 'bg-yellow-300';
+function statusPillClass(state: PermissionState | undefined): string {
+    if (state === 'Granted') {
+        return 'bg-brand-mint/30 text-emerald-900 dark:bg-brand-mint/20 dark:text-brand-mint';
+    }
+    if (state === 'Denied') {
+        return 'bg-brand-coral/20 text-rose-900 dark:bg-brand-coral/20 dark:text-brand-coral';
+    }
+    return 'bg-brand-yellow/25 text-amber-900 dark:bg-brand-yellow/20 dark:text-brand-yellow';
 }
 
 async function runGrant(key: PermissionKey, osIsMac: boolean): Promise<void> {
@@ -130,6 +191,16 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     const handleGrant = useCallback(
         async (key: PermissionKey) => {
+            // On macOS, TCC does not propagate Accessibility / Input Monitoring
+            // grants into a running process — `AXIsProcessTrustedWithOptions`
+            // and `CGPreflightListenEventAccess` keep returning Denied until
+            // the app is relaunched. Surface the restart CTA the moment the
+            // user clicks Grant for one of those, instead of waiting for a
+            // Denied → Granted transition that the running process can never
+            // observe.
+            if (platform?.os === 'macos' && RESTART_REQUIRED.has(key)) {
+                setNeedsRestart(true);
+            }
             try {
                 await runGrant(key, platform?.os === 'macos');
             } catch (e) {
@@ -181,7 +252,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 className="flex min-h-screen items-center justify-center bg-bg text-fg"
                 data-testid="onboarding-loading"
             >
-                <p className="text-sm font-medium">Checking permissions…</p>
+                <p className="text-sm text-muted-foreground">Checking permissions…</p>
             </main>
         );
     }
@@ -191,15 +262,28 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     );
 
     return (
-        <main className="min-h-screen bg-bg p-6 text-fg" data-testid="onboarding-screen">
-            <div className="mx-auto flex max-w-2xl flex-col gap-6">
-                <header className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-extrabold uppercase tracking-tight">
-                        Welcome to bluemacaw
-                    </h1>
-                    <p className="text-sm font-medium normal-case">
-                        bluemacaw needs a few permissions to work. We'll only ask for what's needed
-                        on your system.
+        <main className="min-h-screen bg-bg px-6 py-10 text-fg" data-testid="onboarding-screen">
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+                <header className="flex flex-col items-center gap-2 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-blue/10 text-brand-blue shadow-card dark:bg-main/20 dark:text-main-foreground">
+                        <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="h-6 w-6 stroke-current"
+                        >
+                            <rect x="9" y="3" width="6" height="12" rx="3" />
+                            <path d="M5 11a7 7 0 0 0 14 0" />
+                            <path d="M12 18v3" />
+                        </svg>
+                    </span>
+                    <h1 className="text-2xl font-extrabold tracking-tight">Welcome to bluemacaw</h1>
+                    <p className="max-w-sm text-sm text-muted-foreground">
+                        A few permissions and you're set. We only ask for what your system actually
+                        needs.
                     </p>
                 </header>
 
@@ -209,36 +293,43 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                         const state = statuses[key];
                         const granted = state === 'Granted';
                         return (
-                            <Card key={key} data-testid={`perm-row-${key}`}>
-                                <CardHeader className="mb-2 flex flex-row items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <span
-                                            aria-hidden
-                                            className="border-3 border-border bg-main px-2 py-0.5 text-[10px] font-extrabold"
-                                        >
-                                            {meta.icon}
-                                        </span>
+                            <Card
+                                key={key}
+                                data-testid={`perm-row-${key}`}
+                                className="flex flex-row items-center gap-4 p-4"
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-blue/10 dark:bg-main/20"
+                                >
+                                    {meta.icon}
+                                </span>
+                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                    <h3 className="text-sm font-bold leading-tight">
                                         {meta.title}
-                                    </CardTitle>
-                                    <span
-                                        data-testid={`perm-status-${key}`}
-                                        className={`border-3 border-border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${statusBadgeClass(state)}`}
-                                    >
-                                        {statusLabel(state)}
-                                    </span>
-                                </CardHeader>
-                                <CardContent className="flex flex-row items-center justify-between gap-3 text-sm font-medium normal-case">
-                                    <p>{meta.description}</p>
-                                    {!granted && (
-                                        <Button
-                                            size="sm"
-                                            onClick={() => void handleGrant(key)}
-                                            data-testid={`perm-grant-${key}`}
-                                        >
-                                            Grant
-                                        </Button>
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {meta.description}
+                                    </p>
+                                </div>
+                                <span
+                                    data-testid={`perm-status-${key}`}
+                                    className={cn(
+                                        'inline-flex shrink-0 items-center rounded-pill px-3 py-1 text-[10px] font-bold uppercase tracking-widest',
+                                        statusPillClass(state),
                                     )}
-                                </CardContent>
+                                >
+                                    {statusLabel(state)}
+                                </span>
+                                {!granted && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => void handleGrant(key)}
+                                        data-testid={`perm-grant-${key}`}
+                                    >
+                                        Grant
+                                    </Button>
+                                )}
                             </Card>
                         );
                     })}
@@ -247,38 +338,51 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 {waylandBanner && (
                     <Card
                         data-testid="wayland-banner"
-                        className="border-3 border-border bg-yellow-100"
+                        className="flex flex-row items-start gap-3 bg-brand-yellow/15 p-4 dark:bg-brand-yellow/10"
                     >
-                        <CardContent className="text-xs font-medium normal-case">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-pill bg-brand-yellow/40 text-amber-900 dark:text-brand-yellow">
+                            <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-3 w-3 stroke-current"
+                            >
+                                <path d="M12 9v4" />
+                                <path d="M12 17h.01" />
+                            </svg>
+                        </span>
+                        <p className="text-xs leading-relaxed text-fg">
                             You're on Wayland. bluemacaw will copy transcribed text to your
                             clipboard automatically — press Ctrl+V to paste, since Wayland blocks
                             synthetic keystrokes.
-                        </CardContent>
+                        </p>
                     </Card>
                 )}
 
                 {needsRestart && (
                     <Card
                         data-testid="restart-banner"
-                        className="border-3 border-border bg-yellow-200"
+                        className="flex flex-row items-center justify-between gap-3 bg-brand-yellow/20 p-4 dark:bg-brand-yellow/15"
                     >
-                        <CardContent className="flex flex-row items-center justify-between gap-3 text-xs font-medium normal-case">
-                            <p>
-                                You just granted a permission. Quit and reopen bluemacaw for it to
-                                take effect.
-                            </p>
-                            <Button
-                                size="sm"
-                                onClick={() => void handleRestart()}
-                                data-testid="perm-restart"
-                            >
-                                Restart
-                            </Button>
-                        </CardContent>
+                        <p className="text-xs leading-relaxed text-fg">
+                            Toggle the switch in System Settings, then click Restart. macOS won't
+                            tell bluemacaw about the grant until it relaunches — so the row above
+                            may still say “Not granted” until then.
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={() => void handleRestart()}
+                            data-testid="perm-restart"
+                        >
+                            Restart
+                        </Button>
                     </Card>
                 )}
 
-                <footer className="flex flex-row items-center justify-between gap-2">
+                <footer className="flex flex-row items-center justify-between gap-2 pt-2">
                     <Button
                         variant="ghost"
                         size="sm"
