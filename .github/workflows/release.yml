@@ -53,8 +53,14 @@ jobs:
         with:
           bun-version: latest
 
+      # Pinned to 1.81.0: newer stable toolchains fail to compile
+      # glib v0.18.5 (a transitive dep pulled in by gtk-sys / webkit2gtk-sys
+      # via Tauri) with `error[E0277]: the trait bound
+      # imp::BoxedAnyObject: ObjectSubclassType is not satisfied`. Unpin
+      # once Tauri ships GTK bindings that depend on glib >= 0.19, or once
+      # the lockfile's glib entry is bumped past 0.18.5.
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.81.0
         with:
           targets: ${{ matrix.platform.rust-targets }}
 
