@@ -31,19 +31,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `rust-toolchain` is per-platform because the constraints differ:
+        #   - macOS + Windows compile cleanly on stable; pinning would break
+        #     them with MSRV walls from `darling` and others.
+        #   - Linux trips a `glib v0.18.5` trait-solver bug on current stable
+        #     (~1.91), so it needs an older toolchain — but still >= 1.88 to
+        #     clear the `darling@0.23.0` MSRV and >= 1.85 for `edition2024`.
         platform:
           - name: macos-universal
             os: macos-14
             args: --target universal-apple-darwin
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            rust-toolchain: stable
           - name: linux-x86_64
             os: ubuntu-22.04
             args: ""
             rust-targets: ""
+            rust-toolchain: "1.88.0"
           - name: windows-x86_64
             os: windows-latest
             args: ""
             rust-targets: ""
+            rust-toolchain: stable
     runs-on: ${{ matrix.platform.os }}
     steps:
       - uses: actions/checkout@v4
@@ -53,17 +62,10 @@ jobs:
         with:
           bun-version: latest
 
-      # Pinned to 1.85.0 — the lowest stable toolchain that has the
-      # `edition2024` Cargo feature stabilised (required by transitive deps
-      # like `toml_writer 1.1.1+spec-1.1.0` that Tauri pulls in), while
-      # still being old enough that glib v0.18.5 compiles without the
-      # trait-bound error newer Rust trait-solver passes trip on
-      # (`error[E0277]: imp::BoxedAnyObject: ObjectSubclassType is not
-      # satisfied`). Unpin once Tauri's GTK bindings depend on glib >= 0.19
-      # or our lockfile's glib entry is bumped past 0.18.5.
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ matrix.platform.rust-toolchain }}
           targets: ${{ matrix.platform.rust-targets }}
 
       - name: Cache cargo registry + target
