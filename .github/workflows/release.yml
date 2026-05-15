@@ -53,14 +53,16 @@ jobs:
         with:
           bun-version: latest
 
-      # Pinned to 1.81.0: newer stable toolchains fail to compile
-      # glib v0.18.5 (a transitive dep pulled in by gtk-sys / webkit2gtk-sys
-      # via Tauri) with `error[E0277]: the trait bound
-      # imp::BoxedAnyObject: ObjectSubclassType is not satisfied`. Unpin
-      # once Tauri ships GTK bindings that depend on glib >= 0.19, or once
-      # the lockfile's glib entry is bumped past 0.18.5.
+      # Pinned to 1.85.0 — the lowest stable toolchain that has the
+      # `edition2024` Cargo feature stabilised (required by transitive deps
+      # like `toml_writer 1.1.1+spec-1.1.0` that Tauri pulls in), while
+      # still being old enough that glib v0.18.5 compiles without the
+      # trait-bound error newer Rust trait-solver passes trip on
+      # (`error[E0277]: imp::BoxedAnyObject: ObjectSubclassType is not
+      # satisfied`). Unpin once Tauri's GTK bindings depend on glib >= 0.19
+      # or our lockfile's glib entry is bumped past 0.18.5.
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.81.0
+        uses: dtolnay/rust-toolchain@1.85.0
         with:
           targets: ${{ matrix.platform.rust-targets }}
 
