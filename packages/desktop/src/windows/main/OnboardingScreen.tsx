@@ -52,25 +52,32 @@ function nextNeededStep(after: Step, p: Predicates): Step | null {
     return null;
 }
 
-function hasPrecedingUnsatisfied(current: Step, p: Predicates): boolean {
-    const idx = STEP_ORDER.indexOf(current);
-    for (let i = 0; i < idx; i++) {
-        const candidate = STEP_ORDER[i];
-        if (candidate !== undefined && !predicateForStep(candidate, p)) return true;
-    }
-    return false;
+function linearNextStep(after: Step): Step | null {
+    const idx = STEP_ORDER.indexOf(after);
+    return STEP_ORDER[idx + 1] ?? null;
 }
 
-const STEP_LABELS: ReadonlyArray<{ key: 1 | 2 | 3; label: string }> = [
-    { key: 1, label: 'Permissions' },
-    { key: 2, label: 'Hotkeys' },
-    { key: 3, label: 'Provider' },
+type IndicatorState = 'completed' | 'active' | 'pending';
+interface IndicatorItem {
+    key: string;
+    label: string;
+    state: IndicatorState;
+}
+
+const INDICATOR_KEYS: ReadonlyArray<{ key: string; label: string; step: Step }> = [
+    { key: 'permissions', label: 'Permissions', step: 1 },
+    { key: 'hotkeys', label: 'Hotkeys', step: 2 },
+    { key: 'api-key', label: 'API key', step: '3a' },
+    { key: 'model', label: 'Model', step: '3b' },
 ];
 
-function activeIndicatorKey(step: Step): 1 | 2 | 3 {
-    if (step === 1) return 1;
-    if (step === 2) return 2;
-    return 3;
+function buildIndicators(step: Step): IndicatorItem[] {
+    const activeIdx = STEP_ORDER.indexOf(step);
+    return INDICATOR_KEYS.map((item, i) => ({
+        key: item.key,
+        label: item.label,
+        state: i < activeIdx ? 'completed' : i === activeIdx ? 'active' : 'pending',
+    }));
 }
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
@@ -99,6 +106,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
      * probe and appended to after a successful save in 3a.
      */
     const [existingApiKeys, setExistingApiKeys] = useState<ApiKeyRow[]>([]);
+    /**
+     * Flipped to true the first time the user clicks Back. Once set, `Next`
+     * advances to the immediate next step instead of skipping satisfied
+     * ones — backtracking is a signal that the user wants to walk through
+     * the wizard, not have it whisk them past steps they were about to
+     * revisit. Never flipped back.
+     */
+    const [userBacktracked, setUserBacktracked] = useState(false);
 
     const finish = useCallback(async () => {
         try {
@@ -134,7 +149,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     if (cancelled) return;
                     setExistingApiKeys(keys);
                     const first = keys[0];
-                    if (first && !modelConfig) {
+                    if (first) {
                         setKeyForModelStep({
                             apiKeyId: first.id,
                             providerId: first.providerId,
@@ -159,14 +174,16 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     const advanceAfter = useCallback(
         (completed: Step, nextPredicates: Predicates) => {
-            const target = nextNeededStep(completed, nextPredicates);
+            const target = userBacktracked
+                ? linearNextStep(completed)
+                : nextNeededStep(completed, nextPredicates);
             if (target === null) {
                 void finish();
                 return;
             }
             setStep(target);
         },
-        [finish],
+        [finish, userBacktracked],
     );
 
     const handlePermissionsNext = useCallback(() => {
@@ -192,18 +209,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         [predicates, advanceAfter],
     );
 
-    const handleBack = useCallback(() => {
-        if (step === null) return;
-        const idx = STEP_ORDER.indexOf(step);
-        for (let i = idx - 1; i >= 0; i--) {
-            const candidate = STEP_ORDER[i];
-            if (candidate !== undefined && !predicateForStep(candidate, predicates)) {
-                setStep(candidate);
-                return;
-            }
-        }
-    }, [step, predicates]);
-
     if (loading || step === null) {
         return (
             <main
@@ -217,15 +222,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         );
     }
 
-    const activeKey = activeIndicatorKey(step);
-    const linearBackFn = hasPrecedingUnsatisfied(step, predicates) ? handleBack : undefined;
-    // Inside step 3 the user can always backtrack — 3a → 2 (Hotkeys),
-    // 3b → 3a — even when the preceding step's predicate is already
-    // satisfied. Tweaking the hotkeys or reviewing existing keys mid-
-    // onboarding is a normal thing to want; "no preceding unsatisfied
-    // step" only justifies hiding Back for steps 1 and 2.
-    const goBackToHotkeys = () => setStep(2);
-    const goBackToApiKey = () => setStep('3a');
+    const indicators = buildIndicators(step);
+    // Every step past the first exposes Back to its immediate predecessor
+    // — 2 → 1, 3a → 2, 3b → 3a — even when the preceding step's predicate
+    // is already satisfied. Revisiting permissions, hotkeys, or existing
+    // keys mid-onboarding is a normal thing to want; only step 1 has
+    // nothing to go back to.
+    const goBack = (target: Step) => {
+        setUserBacktracked(true);
+        setStep(target);
+    };
+    const goBackToPermissions = () => goBack(1);
+    const goBackToHotkeys = () => goBack(2);
+    const goBackToApiKey = () => goBack('3a');
 
     return (
         <main className="min-h-screen bg-bg px-6 py-10 text-fg" data-testid="onboarding-screen">
@@ -248,23 +257,23 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     </span>
                     <h1 className="text-2xl font-extrabold tracking-tight">Welcome to bluemacaw</h1>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                        Three quick steps and you're set: permissions, hotkeys, and your first
-                        provider.
+                        Four quick steps and you're set: permissions, hotkeys, your first API key,
+                        and a model.
                     </p>
                     <ol
                         className="flex flex-row items-center gap-2 pt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
                         data-testid="onboarding-progress"
                     >
-                        {STEP_LABELS.map((s, i) => (
-                            <li key={s.key} className="flex items-center gap-2">
+                        {indicators.map((item, i) => (
+                            <li key={item.key} className="flex items-center gap-2">
                                 {i > 0 && <span aria-hidden="true">·</span>}
                                 <span
-                                    data-testid={`onboarding-progress-${s.key}`}
-                                    data-active={activeKey === s.key ? 'true' : 'false'}
+                                    data-testid={`onboarding-progress-${item.key}`}
+                                    data-active={item.state === 'active' ? 'true' : 'false'}
                                     className={cn(
                                         'flex items-center gap-1.5',
-                                        activeKey === s.key && 'text-fg',
-                                        activeKey > s.key &&
+                                        item.state === 'active' && 'text-fg',
+                                        item.state === 'completed' &&
                                             'text-brand-blue dark:text-main-foreground',
                                     )}
                                 >
@@ -272,14 +281,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                                         aria-hidden="true"
                                         className={cn(
                                             'inline-block h-1.5 w-1.5 rounded-full',
-                                            activeKey === s.key
+                                            item.state === 'active'
                                                 ? 'bg-fg'
-                                                : activeKey > s.key
+                                                : item.state === 'completed'
                                                   ? 'bg-brand-blue dark:bg-main-foreground'
                                                   : 'bg-muted-foreground/40',
                                         )}
                                     />
-                                    {s.label}
+                                    {item.label}
                                 </span>
                             </li>
                         ))}
@@ -289,7 +298,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 <section className="rounded-3xl border border-border bg-surface p-6 shadow-card">
                     {step === 1 && <OnboardingStepPermissions onNext={handlePermissionsNext} />}
                     {step === 2 && (
-                        <OnboardingStepHotkeys onBack={linearBackFn} onNext={handleHotkeysNext} />
+                        <OnboardingStepHotkeys
+                            onBack={goBackToPermissions}
+                            onNext={handleHotkeysNext}
+                        />
                     )}
                     {step === '3a' && (
                         <OnboardingStepFirstApiKey

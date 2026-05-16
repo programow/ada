@@ -238,6 +238,25 @@ describe('<OnboardingScreen /> — wizard navigation (full flow)', () => {
         );
     });
 
+    it('Step 2 Back → 1: returns to the Permissions step even when permissions are already granted', async () => {
+        mockPredicates();
+        const user = userEvent.setup();
+        mockAllPermissionsGranted('windows');
+
+        render(<OnboardingScreen onComplete={vi.fn()} />);
+
+        await waitFor(() => expect(screen.getByTestId('perm-continue')).toBeEnabled());
+        await user.click(screen.getByTestId('perm-continue'));
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-hotkeys')).toBeInTheDocument(),
+        );
+        const back = screen.getByTestId('hotkeys-back');
+        await user.click(back);
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-permissions')).toBeInTheDocument(),
+        );
+    });
+
     it('Step 2 → 3a: Next persists + registers both hotkeys, writes hotkeys_onboarded, and advances', async () => {
         mockPredicates();
         const user = userEvent.setup();
@@ -445,6 +464,44 @@ describe('<OnboardingScreen /> — predicate-driven step skipping', () => {
         );
         expect(screen.queryByTestId('onboarding-step-first-api-key')).toBeNull();
         expect(db.addApiKey).not.toHaveBeenCalled();
+    });
+
+    it('after manual Back, subsequent Next advances linearly through satisfied steps', async () => {
+        const user = userEvent.setup();
+        mockPredicates({
+            permissions: true,
+            hotkeys: true,
+            apiKey: false,
+            modelConfig: false,
+        });
+        mockAllPermissionsGranted('macos');
+
+        render(<OnboardingScreen onComplete={vi.fn()} />);
+
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-first-api-key')).toBeInTheDocument(),
+        );
+
+        await user.click(screen.getByTestId('first-api-key-back'));
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-hotkeys')).toBeInTheDocument(),
+        );
+        await user.click(screen.getByTestId('hotkeys-back'));
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-permissions')).toBeInTheDocument(),
+        );
+
+        // From here Next must walk linearly: 1 → 2 → 3a (no skipping past
+        // the already-satisfied permissions / hotkeys steps).
+        await waitFor(() => expect(screen.getByTestId('perm-continue')).toBeEnabled());
+        await user.click(screen.getByTestId('perm-continue'));
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-hotkeys')).toBeInTheDocument(),
+        );
+        await user.click(screen.getByTestId('hotkeys-next'));
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-first-api-key')).toBeInTheDocument(),
+        );
     });
 
     it('finishes immediately if every predicate flips to true between the gate and mount (defensive)', async () => {
