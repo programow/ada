@@ -6,11 +6,15 @@ import { load } from '@tauri-apps/plugin-store';
  * plugin-store default (msgpack-encoded); kept short and namespaced under
  * the app's own data directory.
  *
- * Versioned (`_v1`) so a future onboarding redesign can introduce a new
- * key without colliding with existing user state.
+ * Versioned key so a future onboarding redesign can introduce a new key
+ * without colliding with existing user state. Bumped to `_v2` for the
+ * 3-step wizard (permissions + hotkeys + first provider); the old `_v1`
+ * flag is intentionally ignored so anyone who completed the previous
+ * single-screen flow re-onboards once and gets the new hotkey + provider
+ * setup walkthrough.
  */
 const STORE_PATH = 'bluemacaw-onboarding.bin';
-const STORE_KEY = 'onboarding_v1_completed';
+const STORE_KEY = 'onboarding_v2_completed';
 
 /**
  * Returns true if the user has previously completed (or skipped)
