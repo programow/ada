@@ -17,6 +17,10 @@ vi.mock('@/lib/db', () => ({
     setHotkeyCombo: vi.fn(async () => undefined),
     getCancelHotkeyCombo: vi.fn(async () => 'Cmd+Esc'),
     setCancelHotkeyCombo: vi.fn(async () => undefined),
+    // Used by the predicate-driven onboarding wizard when the gate routes
+    // to show-onboarding. False means "step 2 not yet seen by user."
+    getHotkeysOnboarded: vi.fn(async () => false),
+    setHotkeysOnboarded: vi.fn(async () => undefined),
     getRetentionDays: vi.fn(async () => 365),
     setRetentionDays: vi.fn(async () => undefined),
     purgeOlderThan: vi.fn(async () => ({ softDeleted: 0, hardDeleted: 0 })),
@@ -40,6 +44,12 @@ vi.mock('@/lib/invoke', () => ({
         registerCancelHotkey: vi.fn(async () => 'Cmd+Esc'),
         unregisterCancelHotkey: vi.fn(async () => undefined),
         getPlatformInfo: vi.fn(async () => ({ os: 'macos', isWayland: false })),
+        // OnboardingStepPermissions polls these via useOnboardingStatus
+        // whenever the gate routes to show-onboarding. Stub them so the
+        // poller doesn't spam errors during the show-onboarding case.
+        checkMicrophonePermission: vi.fn(async () => 'Granted'),
+        checkAccessibilityPermission: vi.fn(async () => 'Granted'),
+        checkInputMonitoringPermission: vi.fn(async () => 'Granted'),
     },
 }));
 
@@ -117,10 +127,6 @@ describe('<MainWindow />', () => {
             complete: vi.fn(),
         });
         render(<MainWindow />);
-        // The onboarding screen starts in its own loading state until
-        // useOnboardingStatus resolves; either container is acceptable.
-        const onboarding =
-            screen.queryByTestId('onboarding-screen') ?? screen.queryByTestId('onboarding-loading');
-        expect(onboarding).toBeInTheDocument();
+        expect(screen.getByTestId('onboarding-screen')).toBeInTheDocument();
     });
 });

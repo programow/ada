@@ -1,270 +1,235 @@
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { type PermissionState, vox } from '@/lib/invoke';
+import { type ApiKeyRow, listApiKeys } from '@/lib/db';
 import { markOnboardingCompleted } from '@/lib/onboarding';
-import type { PermissionKey } from '@/lib/platform';
-import { useOnboardingStatus } from '@/lib/use-onboarding-status';
+import {
+    hasAllPermissionsSet,
+    hasApiKeySet,
+    hasHotkeysConfigured,
+    hasModelConfigSet,
+} from '@/lib/onboarding-silent-skip';
 import { cn } from '@/lib/utils';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { OnboardingStepFirstApiKey } from './onboarding/OnboardingStepFirstApiKey';
+import { OnboardingStepFirstModel } from './onboarding/OnboardingStepFirstModel';
+import { OnboardingStepHotkeys } from './onboarding/OnboardingStepHotkeys';
+import { OnboardingStepPermissions } from './onboarding/OnboardingStepPermissions';
 
 interface OnboardingScreenProps {
-    /** Called when the user completes or skips onboarding. Parent should
-     * route to the main UI. */
+    /** Called when the user completes (or explicitly opts out of the
+     * optional final step). Parent should route to the main UI. */
     onComplete: () => void;
 }
 
-interface RowMeta {
-    title: string;
-    description: string;
-    icon: ReactNode;
+type Step = 1 | 2 | '3a' | '3b';
+
+interface Predicates {
+    permissions: boolean;
+    hotkeys: boolean;
+    apiKey: boolean;
+    modelConfig: boolean;
 }
 
-const ICON_BASE_CLASS = 'h-5 w-5 stroke-current text-brand-blue dark:text-main-foreground';
+const STEP_ORDER: ReadonlyArray<Step> = [1, 2, '3a', '3b'];
 
-function MicIcon() {
-    return (
-        <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={ICON_BASE_CLASS}
-        >
-            <rect x="9" y="3" width="6" height="12" rx="3" />
-            <path d="M5 11a7 7 0 0 0 14 0" />
-            <path d="M12 18v3" />
-        </svg>
-    );
+function predicateForStep(s: Step, p: Predicates): boolean {
+    if (s === 1) return p.permissions;
+    if (s === 2) return p.hotkeys;
+    if (s === '3a') return p.apiKey;
+    return p.modelConfig;
 }
 
-function AxIcon() {
-    return (
-        <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={ICON_BASE_CLASS}
-        >
-            <circle cx="12" cy="5" r="1.6" />
-            <path d="M4 9h16" />
-            <path d="M12 9v12" />
-            <path d="M9 21l3-6 3 6" />
-        </svg>
-    );
+function firstUnsatisfied(p: Predicates): Step | null {
+    for (const s of STEP_ORDER) if (!predicateForStep(s, p)) return s;
+    return null;
 }
 
-function KeyIcon() {
-    return (
-        <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={ICON_BASE_CLASS}
-        >
-            <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
-            <path d="M7 10h0.01M11 10h0.01M15 10h0.01M7 14h10" />
-        </svg>
-    );
-}
-
-const ROW_META: Record<PermissionKey, RowMeta> = {
-    microphone: {
-        title: 'Microphone',
-        description: 'Required to record your speech.',
-        icon: <MicIcon />,
-    },
-    accessibility: {
-        title: 'Accessibility',
-        description: 'Lets bluemacaw paste transcribed text into the focused app.',
-        icon: <AxIcon />,
-    },
-    'input-monitoring': {
-        title: 'Input Monitoring',
-        description: 'Lets bluemacaw listen for your Fn-key shortcut.',
-        icon: <KeyIcon />,
-    },
-};
-
-/**
- * Permissions whose grant only takes effect on the *next* process launch.
- * On macOS, TCC does not propagate authorisation changes into a running
- * process, so once we observe a transition Denied/NotDetermined → Granted
- * for any of these we show the user a restart CTA.
- */
-const RESTART_REQUIRED: ReadonlySet<PermissionKey> = new Set(['accessibility', 'input-monitoring']);
-
-function statusLabel(state: PermissionState | undefined): string {
-    if (state === 'Granted') return 'Granted';
-    if (state === 'Denied') return 'Not granted';
-    if (state === 'NotDetermined') return 'Not asked';
-    return 'Checking…';
-}
-
-function statusPillClass(state: PermissionState | undefined): string {
-    if (state === 'Granted') {
-        return 'bg-brand-mint/30 text-emerald-900 dark:bg-brand-mint/20 dark:text-brand-mint';
+function nextNeededStep(after: Step, p: Predicates): Step | null {
+    const start = STEP_ORDER.indexOf(after) + 1;
+    for (let i = start; i < STEP_ORDER.length; i++) {
+        const candidate = STEP_ORDER[i];
+        if (candidate !== undefined && !predicateForStep(candidate, p)) return candidate;
     }
-    if (state === 'Denied') {
-        return 'bg-brand-coral/20 text-rose-900 dark:bg-brand-coral/20 dark:text-brand-coral';
-    }
-    return 'bg-brand-yellow/25 text-amber-900 dark:bg-brand-yellow/20 dark:text-brand-yellow';
+    return null;
 }
 
-async function runGrant(key: PermissionKey, osIsMac: boolean): Promise<void> {
-    if (key === 'microphone') {
-        await vox.requestMicrophonePermission();
-        return;
+function hasPrecedingUnsatisfied(current: Step, p: Predicates): boolean {
+    const idx = STEP_ORDER.indexOf(current);
+    for (let i = 0; i < idx; i++) {
+        const candidate = STEP_ORDER[i];
+        if (candidate !== undefined && !predicateForStep(candidate, p)) return true;
     }
-    if (key === 'accessibility') {
-        if (osIsMac) {
-            // First try the prompting variant — it raises the native dialog
-            // when not yet trusted. If the process is *already* recorded
-            // as untrusted (subsequent calls are rate-limited by macOS),
-            // fall back to the deep-link.
-            const state = await vox.checkAccessibilityPermissionPrompting();
-            if (state !== 'Granted') {
-                await vox.openSettingsPanel('accessibility');
-            }
-            return;
-        }
-        await vox.requestAccessibilityPermission();
-        return;
-    }
-    // input-monitoring
-    await vox.requestInputMonitoringPermission();
-    if (osIsMac) {
-        // macOS does not show the dialog reliably from CGRequestListenEventAccess
-        // in every state; deep-link as a backup so the user always lands on
-        // the right panel.
-        await vox.openSettingsPanel('input-monitoring');
-    }
+    return false;
+}
+
+const STEP_LABELS: ReadonlyArray<{ key: 1 | 2 | 3; label: string }> = [
+    { key: 1, label: 'Permissions' },
+    { key: 2, label: 'Hotkeys' },
+    { key: 3, label: 'Provider' },
+];
+
+function activeIndicatorKey(step: Step): 1 | 2 | 3 {
+    if (step === 1) return 1;
+    if (step === 2) return 2;
+    return 3;
 }
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
-    const { loading, platform, permissions, statuses, allGranted, refresh } = useOnboardingStatus();
-    const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [step, setStep] = useState<Step | null>(null);
+    const [predicates, setPredicates] = useState<Predicates>({
+        permissions: false,
+        hotkeys: false,
+        apiKey: false,
+        modelConfig: false,
+    });
     /**
-     * Tracks which restart-required permissions have transitioned to
-     * Granted *while this screen is mounted*. If non-empty, the user must
-     * restart bluemacaw for the grant to apply to the running process.
+     * The API key 3b should attach a new model config to. Populated either
+     * (a) from an existing `api_keys` row when the wizard lands directly
+     * on 3b, or (b) from the user's freshly-saved key when they completed
+     * 3a. Cleared otherwise; the wizard must never mount 3b without it.
      */
-    const [needsRestart, setNeedsRestart] = useState(false);
-    // Ref (not state) for previous status — we only need it to detect
-    // transitions; mutating it shouldn't trigger re-renders.
-    const seenRef = useRef<Partial<Record<PermissionKey, PermissionState>>>({});
+    const [keyForModelStep, setKeyForModelStep] = useState<{
+        apiKeyId: string;
+        providerId: string;
+    } | null>(null);
+    /**
+     * All API keys the user has on this machine, surfaced to sub-step 3a
+     * so they can see what's already configured (and decide whether to add
+     * another or just continue with what they have). Populated on initial
+     * probe and appended to after a successful save in 3a.
+     */
+    const [existingApiKeys, setExistingApiKeys] = useState<ApiKeyRow[]>([]);
 
-    useEffect(() => {
-        if (!permissions) return;
-        const prev = seenRef.current;
-        let flipped = false;
-        for (const k of permissions.required) {
-            const cur = statuses[k];
-            const prevVal = prev[k];
-            if (
-                RESTART_REQUIRED.has(k) &&
-                prevVal !== undefined &&
-                prevVal !== 'Granted' &&
-                cur === 'Granted'
-            ) {
-                flipped = true;
-            }
-            if (cur !== undefined) prev[k] = cur;
+    const finish = useCallback(async () => {
+        try {
+            await markOnboardingCompleted();
+        } catch (e) {
+            console.error('markOnboardingCompleted failed', e);
         }
-        if (flipped) setNeedsRestart(true);
-    }, [statuses, permissions]);
+        onComplete();
+    }, [onComplete]);
 
-    const handleGrant = useCallback(
-        async (key: PermissionKey) => {
-            // On macOS, TCC does not propagate Accessibility / Input Monitoring
-            // grants into a running process — `AXIsProcessTrustedWithOptions`
-            // and `CGPreflightListenEventAccess` keep returning Denied until
-            // the app is relaunched. Surface the restart CTA the moment the
-            // user clicks Grant for one of those, instead of waiting for a
-            // Denied → Granted transition that the running process can never
-            // observe.
-            if (platform?.os === 'macos' && RESTART_REQUIRED.has(key)) {
-                setNeedsRestart(true);
+    // Probe all four predicates on mount and pick the first not-yet-satisfied
+    // step. If everything has flipped to true between the gate's decision and
+    // the wizard mounting (race), defensively finish without rendering steps.
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            const [permissions, hotkeys, apiKey, modelConfig] = await Promise.all([
+                hasAllPermissionsSet(),
+                hasHotkeysConfigured(),
+                hasApiKeySet(),
+                hasModelConfigSet(),
+            ]);
+            if (cancelled) return;
+            const next: Predicates = { permissions, hotkeys, apiKey, modelConfig };
+            setPredicates(next);
+            // Fetch the full list of existing keys whenever 3a's predicate
+            // is already true. The list seeds (a) the keyForModelStep target
+            // for a direct 3b landing, and (b) the read-only "you've already
+            // added these keys" panel inside 3a if the user navigates there.
+            if (apiKey) {
+                try {
+                    const keys = await listApiKeys();
+                    if (cancelled) return;
+                    setExistingApiKeys(keys);
+                    const first = keys[0];
+                    if (first && !modelConfig) {
+                        setKeyForModelStep({
+                            apiKeyId: first.id,
+                            providerId: first.providerId,
+                        });
+                    }
+                } catch (e) {
+                    console.error('OnboardingScreen: listApiKeys failed', e);
+                }
             }
-            try {
-                await runGrant(key, platform?.os === 'macos');
-            } catch (e) {
-                console.error(`grant ${key} failed`, e);
+            const target = firstUnsatisfied(next);
+            setLoading(false);
+            if (target === null) {
+                void finish();
+                return;
             }
-            // Refresh immediately rather than waiting for the next 1s poll.
-            await refresh();
+            setStep(target);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [finish]);
+
+    const advanceAfter = useCallback(
+        (completed: Step, nextPredicates: Predicates) => {
+            const target = nextNeededStep(completed, nextPredicates);
+            if (target === null) {
+                void finish();
+                return;
+            }
+            setStep(target);
         },
-        [platform, refresh],
+        [finish],
     );
 
-    const handleSkipConfirm = useCallback(async () => {
-        try {
-            await markOnboardingCompleted();
-        } catch (e) {
-            console.error('markOnboardingCompleted failed', e);
-        }
-        setShowSkipConfirm(false);
-        onComplete();
-    }, [onComplete]);
+    const handlePermissionsNext = useCallback(() => {
+        const next: Predicates = { ...predicates, permissions: true };
+        setPredicates(next);
+        advanceAfter(1, next);
+    }, [predicates, advanceAfter]);
 
-    const handleContinue = useCallback(async () => {
-        try {
-            await markOnboardingCompleted();
-        } catch (e) {
-            console.error('markOnboardingCompleted failed', e);
-        }
-        onComplete();
-    }, [onComplete]);
+    const handleHotkeysNext = useCallback(() => {
+        const next: Predicates = { ...predicates, hotkeys: true };
+        setPredicates(next);
+        advanceAfter(2, next);
+    }, [predicates, advanceAfter]);
 
-    const handleRestart = useCallback(async () => {
-        // Mark completed first so a brand-new launch routes straight to the
-        // main UI after restart — the user already finished the gestures.
-        try {
-            await markOnboardingCompleted();
-        } catch (e) {
-            console.error('markOnboardingCompleted before restart failed', e);
-        }
-        try {
-            await vox.restartApp();
-        } catch (e) {
-            console.error('restartApp failed', e);
-        }
-    }, []);
+    const handleApiKeySaved = useCallback(
+        (saved: ApiKeyRow) => {
+            setKeyForModelStep({ apiKeyId: saved.id, providerId: saved.providerId });
+            setExistingApiKeys((prev) => [...prev, saved]);
+            const next: Predicates = { ...predicates, apiKey: true };
+            setPredicates(next);
+            advanceAfter('3a', next);
+        },
+        [predicates, advanceAfter],
+    );
 
-    if (loading || !platform || !permissions) {
+    const handleBack = useCallback(() => {
+        if (step === null) return;
+        const idx = STEP_ORDER.indexOf(step);
+        for (let i = idx - 1; i >= 0; i--) {
+            const candidate = STEP_ORDER[i];
+            if (candidate !== undefined && !predicateForStep(candidate, predicates)) {
+                setStep(candidate);
+                return;
+            }
+        }
+    }, [step, predicates]);
+
+    if (loading || step === null) {
         return (
             <main
                 className="flex min-h-screen items-center justify-center bg-bg text-fg"
-                data-testid="onboarding-loading"
+                data-testid="onboarding-screen"
             >
-                <p className="text-sm text-muted-foreground">Checking permissions…</p>
+                <p className="text-sm text-muted-foreground" data-testid="onboarding-loading">
+                    Setting up…
+                </p>
             </main>
         );
     }
 
-    const waylandBanner = permissions.informational?.some(
-        (i) => i.kind === 'wayland-paste-fallback',
-    );
+    const activeKey = activeIndicatorKey(step);
+    const linearBackFn = hasPrecedingUnsatisfied(step, predicates) ? handleBack : undefined;
+    // Within step 3, the user can always toggle between the API-key and
+    // Model sub-screens — Back from 3b returns to 3a unconditionally, even
+    // when 3a's predicate is already satisfied, so they can review or add
+    // another key. Back from 3a follows the linear preceding-unsatisfied
+    // rule (no point sending them back to a satisfied earlier step).
+    const goBackToApiKey = () => setStep('3a');
 
     return (
         <main className="min-h-screen bg-bg px-6 py-10 text-fg" data-testid="onboarding-screen">
             <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
-                <header className="flex flex-col items-center gap-2 text-center">
+                <header className="flex flex-col items-center gap-3 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand-blue/10 text-brand-blue shadow-card dark:bg-main/20 dark:text-main-foreground">
                         <svg
                             aria-hidden="true"
@@ -282,148 +247,80 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     </span>
                     <h1 className="text-2xl font-extrabold tracking-tight">Welcome to bluemacaw</h1>
                     <p className="max-w-sm text-sm text-muted-foreground">
-                        A few permissions and you're set. We only ask for what your system actually
-                        needs.
+                        Three quick steps and you're set: permissions, hotkeys, and your first
+                        provider.
                     </p>
-                </header>
-
-                <section className="flex flex-col gap-3">
-                    {permissions.required.map((key) => {
-                        const meta = ROW_META[key];
-                        const state = statuses[key];
-                        const granted = state === 'Granted';
-                        return (
-                            <Card
-                                key={key}
-                                data-testid={`perm-row-${key}`}
-                                className="flex flex-row items-center gap-4 p-4"
-                            >
+                    <ol
+                        className="flex flex-row items-center gap-2 pt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
+                        data-testid="onboarding-progress"
+                    >
+                        {STEP_LABELS.map((s, i) => (
+                            <li key={s.key} className="flex items-center gap-2">
+                                {i > 0 && <span aria-hidden="true">·</span>}
                                 <span
-                                    aria-hidden="true"
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-blue/10 dark:bg-main/20"
-                                >
-                                    {meta.icon}
-                                </span>
-                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                    <h3 className="text-sm font-bold leading-tight">
-                                        {meta.title}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {meta.description}
-                                    </p>
-                                </div>
-                                <span
-                                    data-testid={`perm-status-${key}`}
+                                    data-testid={`onboarding-progress-${s.key}`}
+                                    data-active={activeKey === s.key ? 'true' : 'false'}
                                     className={cn(
-                                        'inline-flex shrink-0 items-center rounded-pill px-3 py-1 text-[10px] font-bold uppercase tracking-widest',
-                                        statusPillClass(state),
+                                        'flex items-center gap-1.5',
+                                        activeKey === s.key && 'text-fg',
+                                        activeKey > s.key &&
+                                            'text-brand-blue dark:text-main-foreground',
                                     )}
                                 >
-                                    {statusLabel(state)}
+                                    <span
+                                        aria-hidden="true"
+                                        className={cn(
+                                            'inline-block h-1.5 w-1.5 rounded-full',
+                                            activeKey === s.key
+                                                ? 'bg-fg'
+                                                : activeKey > s.key
+                                                  ? 'bg-brand-blue dark:bg-main-foreground'
+                                                  : 'bg-muted-foreground/40',
+                                        )}
+                                    />
+                                    {s.label}
                                 </span>
-                                {!granted && (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => void handleGrant(key)}
-                                        data-testid={`perm-grant-${key}`}
-                                    >
-                                        Grant
-                                    </Button>
-                                )}
+                            </li>
+                        ))}
+                    </ol>
+                </header>
+
+                <section className="rounded-3xl border border-border bg-surface p-6 shadow-card">
+                    {step === 1 && <OnboardingStepPermissions onNext={handlePermissionsNext} />}
+                    {step === 2 && (
+                        <OnboardingStepHotkeys onBack={linearBackFn} onNext={handleHotkeysNext} />
+                    )}
+                    {step === '3a' && (
+                        <OnboardingStepFirstApiKey
+                            onBack={linearBackFn}
+                            existingKeys={existingApiKeys}
+                            onSaved={handleApiKeySaved}
+                            onContinueExisting={keyForModelStep ? () => setStep('3b') : undefined}
+                            onSkipFinish={() => void finish()}
+                        />
+                    )}
+                    {step === '3b' &&
+                        (keyForModelStep ? (
+                            <OnboardingStepFirstModel
+                                apiKeyId={keyForModelStep.apiKeyId}
+                                providerId={keyForModelStep.providerId}
+                                onBack={goBackToApiKey}
+                                onFinish={() => void finish()}
+                            />
+                        ) : (
+                            // Defensive: we should always have a key by the time
+                            // step 3b mounts — either fetched on initial probe
+                            // (existing key + no model config) or set by 3a's
+                            // save. If we somehow don't, finishing is the
+                            // least-broken option.
+                            <Card className="p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    No API key available; finishing onboarding.
+                                </p>
                             </Card>
-                        );
-                    })}
+                        ))}
                 </section>
-
-                {waylandBanner && (
-                    <Card
-                        data-testid="wayland-banner"
-                        className="flex flex-row items-start gap-3 bg-brand-yellow/15 p-4 dark:bg-brand-yellow/10"
-                    >
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-pill bg-brand-yellow/40 text-amber-900 dark:text-brand-yellow">
-                            <svg
-                                aria-hidden="true"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="h-3 w-3 stroke-current"
-                            >
-                                <path d="M12 9v4" />
-                                <path d="M12 17h.01" />
-                            </svg>
-                        </span>
-                        <p className="text-xs leading-relaxed text-fg">
-                            You're on Wayland. bluemacaw will copy transcribed text to your
-                            clipboard automatically — press Ctrl+V to paste, since Wayland blocks
-                            synthetic keystrokes.
-                        </p>
-                    </Card>
-                )}
-
-                {needsRestart && (
-                    <Card
-                        data-testid="restart-banner"
-                        className="flex flex-row items-center justify-between gap-3 bg-brand-yellow/20 p-4 dark:bg-brand-yellow/15"
-                    >
-                        <p className="text-xs leading-relaxed text-fg">
-                            Toggle the switch in System Settings, then click Restart. macOS won't
-                            tell bluemacaw about the grant until it relaunches — so the row above
-                            may still say “Not granted” until then.
-                        </p>
-                        <Button
-                            size="sm"
-                            onClick={() => void handleRestart()}
-                            data-testid="perm-restart"
-                        >
-                            Restart
-                        </Button>
-                    </Card>
-                )}
-
-                <footer className="flex flex-row items-center justify-between gap-2 pt-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowSkipConfirm(true)}
-                        data-testid="perm-skip"
-                    >
-                        Skip for now
-                    </Button>
-                    <Button
-                        disabled={!allGranted}
-                        onClick={() => void handleContinue()}
-                        data-testid="perm-continue"
-                    >
-                        Continue
-                    </Button>
-                </footer>
             </div>
-
-            <Dialog open={showSkipConfirm} onOpenChange={(o) => !o && setShowSkipConfirm(false)}>
-                <DialogContent data-testid="skip-confirm-dialog">
-                    <DialogHeader>
-                        <DialogTitle>Skip permissions?</DialogTitle>
-                        <DialogDescription>
-                            You can grant permissions later in Settings — but recording and paste
-                            won't work until you do.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowSkipConfirm(false)}
-                            data-testid="skip-cancel"
-                        >
-                            Cancel
-                        </Button>
-                        <Button onClick={() => void handleSkipConfirm()} data-testid="skip-confirm">
-                            Skip anyway
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </main>
     );
 }

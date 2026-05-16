@@ -12,6 +12,14 @@ const OVERLAY_Y_KEY = 'overlay_y';
 const SELECTED_MIC_DEVICE_KEY = 'selected_mic_device_id';
 const HOTKEY_COMBO_KEY = 'hotkey_combo';
 const CANCEL_HOTKEY_COMBO_KEY = 'cancel_hotkey_combo';
+/**
+ * Set to `'true'` the first time the user finishes the hotkeys onboarding
+ * step. Hotkey combos persist with sensible defaults when no row exists,
+ * so the *presence* of the combo keys can't distinguish "never seen the
+ * step" from "seen it and accepted defaults". This explicit flag lets the
+ * onboarding wizard skip step 2 on a subsequent run.
+ */
+const HOTKEYS_ONBOARDED_KEY = 'hotkeys_onboarded';
 /** Default cancel hotkey applied when the user has never set one. Cmd+Esc
  * is a sensible macOS default — discoverable, not bound to anything else,
  * and requires a modifier so the combo parser accepts it (bare Esc would
@@ -330,6 +338,22 @@ export async function setCancelHotkeyCombo(combo: string): Promise<void> {
     await conn.execute(
         'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
         [CANCEL_HOTKEY_COMBO_KEY, combo],
+    );
+}
+
+export async function getHotkeysOnboarded(): Promise<boolean> {
+    const conn = await db();
+    const rows = (await conn.select('SELECT value FROM app_state WHERE key = ?', [
+        HOTKEYS_ONBOARDED_KEY,
+    ])) as { value: string }[];
+    return rows[0]?.value === 'true';
+}
+
+export async function setHotkeysOnboarded(value: boolean): Promise<void> {
+    const conn = await db();
+    await conn.execute(
+        'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [HOTKEYS_ONBOARDED_KEY, value ? 'true' : 'false'],
     );
 }
 
