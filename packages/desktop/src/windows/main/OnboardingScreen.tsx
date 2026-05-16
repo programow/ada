@@ -219,11 +219,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     const activeKey = activeIndicatorKey(step);
     const linearBackFn = hasPrecedingUnsatisfied(step, predicates) ? handleBack : undefined;
-    // Within step 3, the user can always toggle between the API-key and
-    // Model sub-screens — Back from 3b returns to 3a unconditionally, even
-    // when 3a's predicate is already satisfied, so they can review or add
-    // another key. Back from 3a follows the linear preceding-unsatisfied
-    // rule (no point sending them back to a satisfied earlier step).
+    // Inside step 3 the user can always backtrack — 3a → 2 (Hotkeys),
+    // 3b → 3a — even when the preceding step's predicate is already
+    // satisfied. Tweaking the hotkeys or reviewing existing keys mid-
+    // onboarding is a normal thing to want; "no preceding unsatisfied
+    // step" only justifies hiding Back for steps 1 and 2.
+    const goBackToHotkeys = () => setStep(2);
     const goBackToApiKey = () => setStep('3a');
 
     return (
@@ -292,7 +293,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     )}
                     {step === '3a' && (
                         <OnboardingStepFirstApiKey
-                            onBack={linearBackFn}
+                            onBack={goBackToHotkeys}
                             existingKeys={existingApiKeys}
                             onSaved={handleApiKeySaved}
                             onContinueExisting={keyForModelStep ? () => setStep('3b') : undefined}

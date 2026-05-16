@@ -390,7 +390,8 @@ describe('<OnboardingScreen /> — predicate-driven step skipping', () => {
         expect(db.addApiKey).not.toHaveBeenCalled();
     });
 
-    it('mounts directly on sub-step 3a when only api key + model config are missing', async () => {
+    it('mounts directly on sub-step 3a when only api key + model config are missing, and Back returns to the Hotkeys step', async () => {
+        const user = userEvent.setup();
         mockPredicates({
             permissions: true,
             hotkeys: true,
@@ -404,7 +405,14 @@ describe('<OnboardingScreen /> — predicate-driven step skipping', () => {
         await waitFor(() =>
             expect(screen.getByTestId('onboarding-step-first-api-key')).toBeInTheDocument(),
         );
-        expect(screen.queryByTestId('first-api-key-back')).toBeNull();
+        // Within step 3, Back is always available and returns to step 2 so
+        // the user can tweak hotkeys mid-onboarding without abandoning the
+        // wizard.
+        const back = screen.getByTestId('first-api-key-back');
+        await user.click(back);
+        await waitFor(() =>
+            expect(screen.getByTestId('onboarding-step-hotkeys')).toBeInTheDocument(),
+        );
     });
 
     it('skips sub-step 3a when an api key already exists but the model config is missing (3a → 3b directly after step 2)', async () => {
