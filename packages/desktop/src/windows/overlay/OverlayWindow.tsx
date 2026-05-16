@@ -31,7 +31,6 @@ const PILL = cn(
     'flex items-center gap-2',
     'rounded-full bg-brand-navy/85 backdrop-blur-md',
     'pl-2 pr-4 py-2.5',
-    'shadow-card-lg',
     'select-none text-white',
 );
 
