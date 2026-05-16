@@ -96,18 +96,74 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Builds the bundles for the current platform AND (on `release` triggers)
-      # attaches them to the GitHub release that fired the workflow. On
-      # `workflow_dispatch` triggers `releaseId` is empty so tauri-action just
-      # builds without attaching.
+      # macOS-only: materialize the App Store Connect API key from the secret
+      # and export the env vars notarytool needs. tauri-action picks up
+      # APPLE_API_ISSUER/KEY/KEY_PATH from the env automatically.
+      - name: Set up notarization API key (macOS)
+        if: matrix.platform.os == 'macos-14'
+        env:
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$KEY_CONTENT" | base64 --decode > ~/private_keys/AuthKey_$KEY_ID.p8
+          echo "APPLE_API_KEY_PATH=$HOME/private_keys/AuthKey_$KEY_ID.p8" >> $GITHUB_ENV
+          echo "APPLE_API_KEY=$KEY_ID" >> $GITHUB_ENV
+          echo "APPLE_API_ISSUER=$ISSUER" >> $GITHUB_ENV
+
+      # Builds the bundles for the current platform. We deliberately do NOT
+      # pass `releaseId` here: tauri-action would upload immediately, but the
+      # macOS DMG still needs stapling. The dedicated upload step below runs
+      # after stapling.
+      #
+      # On macOS, tauri-action imports the .p12 into a temp keychain when
+      # APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY
+      # are set, and notarizes + staples the inner .app using the API key env
+      # vars set above. The DMG wrapper is stapled in the next step.
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         with:
           projectPath: packages/desktop
           args: ${{ matrix.platform.args }}
-          releaseId: ${{ github.event.release.id || '' }}
+
+      # Tauri's bundler doesn't notarize the DMG wrapper (only the inner .app).
+      # This script submits the DMG to Apple, staples the ticket, and verifies.
+      - name: Notarize and staple DMG (macOS)
+        if: matrix.platform.os == 'macos-14'
+        working-directory: packages/desktop
+        run: ./scripts/notarize-staple-dmg.sh
+
+      # Upload all platform bundles to the GitHub release. Runs only on real
+      # `release` events; workflow_dispatch builds don't publish anywhere.
+      - name: Upload bundles to GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(
+            packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            packages/desktop/src-tauri/target/release/bundle/deb/*.deb
+            packages/desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            packages/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            packages/desktop/src-tauri/target/release/bundle/msi/*.msi
+            packages/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+          )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no bundles found to upload"
+            exit 0
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
 
   # Generates a latest.json manifest describing the just-published release's
   # per-platform download URLs and attaches it to the GH release. The landing
