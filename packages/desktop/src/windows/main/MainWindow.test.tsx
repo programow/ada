@@ -72,6 +72,16 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
     WebviewWindow: { getByLabel: vi.fn(async () => null) },
 }));
 
+// useUpdater pulls in @tauri-apps/plugin-updater, which throws under jsdom
+// because it expects the Tauri IPC bridge. Stub it to a quiet idle state.
+vi.mock('@tauri-apps/plugin-updater', () => ({
+    check: vi.fn(async () => null),
+}));
+
+vi.mock('@tauri-apps/api/app', () => ({
+    getVersion: vi.fn(async () => '0.1.2'),
+}));
+
 vi.mock('@/lib/use-onboarding-gate', () => ({
     useOnboardingGate: vi.fn(() => ({ state: 'show-main', complete: vi.fn() })),
 }));
