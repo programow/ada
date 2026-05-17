@@ -80,6 +80,23 @@ jobs:
             ${{ runner.os }}-cargo-release-
             ${{ runner.os }}-cargo-
 
+      # The cache above restores `target/` to speed up builds. That includes
+      # `target/.../bundle/`, which holds artifacts from the previous run —
+      # potentially with stale version numbers (e.g. 0.1.0 .exe/.msi from
+      # before this branch's version bump) or stale branding (Vox.Era.app.tar.gz
+      # from the rename). The upload step's globs would happily pick those
+      # up alongside the freshly-built ones. Nuking the bundle dirs before
+      # the build keeps the cache benefit (incremental Rust compile) without
+      # the artifact pollution.
+      - name: Wipe stale bundle dirs (cache hygiene)
+        shell: bash
+        run: |
+          rm -rf packages/desktop/src-tauri/target/release/bundle
+          rm -rf packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          rm -rf packages/desktop/src-tauri/target/debug/bundle
+          rm -rf packages/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle
+          rm -rf packages/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle
+
       - name: Install Linux build deps
         if: matrix.platform.os == 'ubuntu-22.04'
         run: |
@@ -150,6 +167,14 @@ jobs:
 
       # Upload all platform bundles to the GitHub release. Runs only on real
       # `release` events; workflow_dispatch builds don't publish anywhere.
+      #
+      # We deliberately upload each file with its own `gh release upload`
+      # call. A previous incarnation passed the full array to a single call,
+      # but `gh` was silently dropping the `*.sig` files from the batch
+      # (exit code stayed 0, the sigs just never appeared on the release)
+      # which then broke the downstream publish-update-manifest job. One
+      # call per file makes the failure mode visible: a bad upload returns
+      # non-zero from gh and the step fails loudly with the offending file.
       - name: Upload bundles to GitHub release
         if: github.event_name == 'release'
         env:
@@ -183,7 +208,13 @@ jobs:
             echo "no bundles found to upload"
             exit 0
           fi
-          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "--- files to upload (${#files[@]}) ---"
+          printf '  %s\n' "${files[@]}"
+          echo "--------------------------------------"
+          for f in "${files[@]}"; do
+            echo "→ uploading $f"
+            gh release upload "$TAG" "$f" --clobber --repo "$GITHUB_REPOSITORY"
+          done
 
   # Generates a latest.json manifest describing the just-published release's
   # per-platform download URLs and attaches it to the GH release. The landing
