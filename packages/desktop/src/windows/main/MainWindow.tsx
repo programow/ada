@@ -2,8 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toast } from '@/components/ui/toast';
 import { useHotkeyRecording } from '@/hooks/useHotkeyRecording';
+import { useUpdater } from '@/hooks/useUpdater';
 import { listTranscriptions, restoreTranscription, softDeleteTranscription } from '@/lib/db';
 import { useOnboardingGate } from '@/lib/use-onboarding-gate';
+import { getVersion } from '@tauri-apps/api/app';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dashboard } from './Dashboard';
 import { History, type HistoryEntry } from './History';
@@ -16,6 +18,7 @@ import { SettingsOverlay } from './SettingsOverlay';
 import { SettingsRecording } from './SettingsRecording';
 import { SettingsTheme } from './SettingsTheme';
 import { SettingsUpdates } from './SettingsUpdates';
+import { UpdateBanner } from './UpdateBanner';
 
 function formatCreatedAt(ms: number): string {
     return new Date(ms).toISOString();
@@ -59,9 +62,25 @@ export function MainWindow() {
  */
 export function MainWindowInner() {
     const { state: recordingState } = useHotkeyRecording();
+    const { status: updaterStatus, checkForUpdates, installAndRestart } = useUpdater();
     const [historyEntries, setHistoryEntries] = useState<readonly HistoryEntry[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
     const [undoToast, setUndoToast] = useState<UndoToastState>({ open: false, rowId: null });
+    const [appVersion, setAppVersion] = useState<string | null>(null);
+
+    // Silent background check once on mount. Failures here are non-fatal —
+    // the user can still trigger a manual check from Settings → Updates.
+    useEffect(() => {
+        void checkForUpdates();
+    }, [checkForUpdates]);
+
+    // Pull the running binary's version (not the JS bundle's package.json) so
+    // the footer reflects what's actually installed.
+    useEffect(() => {
+        void getVersion()
+            .then(setAppVersion)
+            .catch(() => setAppVersion(null));
+    }, []);
 
     const loadHistory = useCallback(async () => {
         try {
@@ -117,6 +136,7 @@ export function MainWindowInner() {
 
     return (
         <main className="min-h-screen bg-bg p-6 text-fg">
+            <UpdateBanner status={updaterStatus} onInstall={() => void installAndRestart()} />
             <header className="mb-6 flex flex-row items-start justify-between gap-4">
                 <div className="flex flex-row items-center gap-3">
                     <img src="/logo.svg" alt="" className="h-12 w-12" />
@@ -167,7 +187,18 @@ export function MainWindowInner() {
                     <SettingsOverlay />
                     <SettingsHistory />
                     <SettingsTheme />
-                    <SettingsUpdates />
+                    <SettingsUpdates
+                        status={updaterStatus}
+                        onCheckNow={() => void checkForUpdates()}
+                    />
+                    {appVersion && (
+                        <p
+                            className="mt-2 text-center text-xs text-muted-foreground"
+                            data-testid="app-version"
+                        >
+                            Version {appVersion}
+                        </p>
+                    )}
                 </TabsContent>
             </Tabs>
             <Toast

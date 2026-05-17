@@ -17,4 +17,22 @@ describe('<SettingsUpdates />', () => {
         await user.click(screen.getByRole('button', { name: /check now/i }));
         expect(onCheckNow).toHaveBeenCalledTimes(1);
     });
+
+    it('disables the button and shows "Checking…" while a check is in flight', () => {
+        render(<SettingsUpdates status={{ kind: 'checking' }} />);
+        const btn = screen.getByRole('button', { name: /checking/i });
+        expect(btn).toBeDisabled();
+    });
+
+    it('renders an available version in the status line', () => {
+        render(<SettingsUpdates status={{ kind: 'available', version: '0.2.0' }} />);
+        expect(screen.getByTestId('updates-status-line')).toHaveTextContent(
+            /update 0\.2\.0 is ready to install/i,
+        );
+    });
+
+    it('renders an error message in the status line', () => {
+        render(<SettingsUpdates status={{ kind: 'error', message: 'manifest 404' }} />);
+        expect(screen.getByTestId('updates-status-line')).toHaveTextContent(/manifest 404/i);
+    });
 });

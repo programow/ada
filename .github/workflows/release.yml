@@ -121,6 +121,12 @@ jobs:
       # APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY
       # are set, and notarizes + staples the inner .app using the API key env
       # vars set above. The DMG wrapper is stapled in the next step.
+      # TAURI_SIGNING_PRIVATE_KEY* are read by the bundler's updater step. When
+      # set, it emits the updater bundles (.app.tar.gz / .AppImage.tar.gz /
+      # .msi.zip) AND their minisign signatures (*.sig) alongside the regular
+      # installer artifacts. The .sig files are what gets embedded in
+      # update.json so the running app can verify the download before swapping
+      # binaries.
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -129,6 +135,8 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: packages/desktop
           args: ${{ matrix.platform.args }}
@@ -152,12 +160,24 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           files=(
+            # User-facing installers
             packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
             packages/desktop/src-tauri/target/release/bundle/deb/*.deb
             packages/desktop/src-tauri/target/release/bundle/rpm/*.rpm
             packages/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             packages/desktop/src-tauri/target/release/bundle/msi/*.msi
             packages/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            # Updater bundles + minisign signatures (consumed by tauri-plugin-updater
+            # via update.json). Distinct artifacts from the installers above:
+            # smaller, pre-extracted, swapped in-place at runtime.
+            packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+            packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+            packages/desktop/src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
+            packages/desktop/src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+            packages/desktop/src-tauri/target/release/bundle/msi/*.msi.zip
+            packages/desktop/src-tauri/target/release/bundle/msi/*.msi.zip.sig
+            packages/desktop/src-tauri/target/release/bundle/nsis/*-setup.nsis.zip
+            packages/desktop/src-tauri/target/release/bundle/nsis/*-setup.nsis.zip.sig
           )
           if [ ${#files[@]} -eq 0 ]; then
             echo "no bundles found to upload"
@@ -215,3 +235,106 @@ jobs:
 
       - name: Attach manifest to GitHub release
         run: gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Generates the Tauri updater manifest (update.json) — distinct from
+  # latest.json above:
+  #   - latest.json     → consumed by the landing page; lists installer URLs.
+  #   - update.json     → consumed by tauri-plugin-updater inside the running
+  #                       app; lists per-platform updater bundle URLs and
+  #                       their minisign signatures so the binary can be
+  #                       verified before being swapped in.
+  # The plugin endpoint in tauri.conf.json points at this file via the
+  # `releases/latest/download/update.json` redirect.
+  publish-update-manifest:
+    name: Publish update.json
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build update.json from release assets
+        run: |
+          set -euo pipefail
+          mkdir -p sigs
+          # Pull every .sig from the release into ./sigs/ so we can read the
+          # minisign signature content into the manifest. (sigs are short
+          # base64 blobs — cheap to download.)
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[].name' \
+            | grep '\.sig$' \
+            | while read -r name; do
+                gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+                  --pattern "$name" --dir sigs
+              done
+
+          assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          # Find the first asset matching a regex, or empty if none.
+          pick() { echo "$assets" | grep -E "$1" | head -n1 || true; }
+
+          mac_bundle=$(pick '\.app\.tar\.gz$')
+          linux_bundle=$(pick '\.AppImage\.tar\.gz$')
+          # Prefer NSIS for the updater on Windows (Tauri 2 default); fall
+          # back to MSI if NSIS wasn't produced.
+          win_bundle=$(pick '-setup\.nsis\.zip$')
+          [[ -z "$win_bundle" ]] && win_bundle=$(pick '\.msi\.zip$')
+
+          # Emit a JSON {signature, url} object for a given bundle filename,
+          # or `null` if the bundle isn't present. The signature is the raw
+          # content of the matching <bundle>.sig file.
+          platform_entry() {
+            local bundle="$1"
+            if [[ -z "$bundle" ]]; then
+              echo null
+              return
+            fi
+            local sig_path="sigs/${bundle}.sig"
+            if [[ ! -f "$sig_path" ]]; then
+              echo "missing signature for $bundle" >&2
+              exit 1
+            fi
+            local sig
+            sig=$(cat "$sig_path")
+            jq -n \
+              --arg sig "$sig" \
+              --arg repo "$GITHUB_REPOSITORY" \
+              --arg tag "$TAG" \
+              --arg f "$bundle" \
+              '{signature: $sig, url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/" + ($f | @uri))}'
+          }
+
+          mac_entry=$(platform_entry "$mac_bundle")
+          linux_entry=$(platform_entry "$linux_bundle")
+          win_entry=$(platform_entry "$win_bundle")
+
+          # macOS bundle is a universal binary — list it under all darwin
+          # arch keys so older plugin versions that don't recognize
+          # `darwin-universal` still resolve a download.
+          jq -n \
+            --arg version "${TAG#v}" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg notes "See release notes at https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}" \
+            --argjson mac "$mac_entry" \
+            --argjson linux "$linux_entry" \
+            --argjson win "$win_entry" \
+            '{
+              version: $version,
+              pub_date: $pub_date,
+              notes: $notes,
+              platforms: {
+                "darwin-aarch64": $mac,
+                "darwin-x86_64": $mac,
+                "darwin-universal": $mac,
+                "linux-x86_64": $linux,
+                "windows-x86_64": $win
+              }
+            }' > update.json
+          cat update.json
+
+      - name: Attach update.json to GitHub release
+        run: gh release upload "$TAG" update.json --clobber --repo "$GITHUB_REPOSITORY"
